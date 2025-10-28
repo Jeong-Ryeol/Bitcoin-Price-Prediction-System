@@ -941,15 +941,27 @@ elif page == "About":
 
     이 시스템은 교육 목적으로 제작되었으며,
     실제 투자 결정에 사용해서는 안 됩니다.
+
+    ---
+
+    ### Developer
+
+    **Jeong Won Ryeol**
+    Department of Computer Science and Engineering
+
+    GitHub: [github.com/Jeong-Ryeol](https://github.com/Jeong-Ryeol)
     """)
 
     st.markdown("---")
-    st.markdown("Made with Love for Data Mining Project")
+    st.markdown("Made with ❤️ for Data Mining Project")
 
 
 # Footer
 st.markdown("---")
 st.markdown(
-    "<div style='text-align: center; color: gray;'>Bitcoin Price Prediction System | Data Mining Project 2025</div>",
+    "<div style='text-align: center; color: gray;'>"
+    "Bitcoin Price Prediction System | Data Mining Project 2025<br>"
+    "Developed by <strong>Jeong Won Ryeol</strong> | Department of Computer Science and Engineering"
+    "</div>",
     unsafe_allow_html=True
 )
