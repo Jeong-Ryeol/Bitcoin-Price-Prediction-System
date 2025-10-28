@@ -354,7 +354,7 @@ elif page == "Chart Image Analysis":
 
         with col1:
             st.subheader("Uploaded Chart")
-            st.image(image, use_column_width=True)
+            st.image(image, use_container_width=True)
 
         with col2:
             st.subheader("Image Analysis")
@@ -518,7 +518,7 @@ elif page == "Chart Image Analysis":
             if chart_files:
                 st.markdown("### Sample Chart (from our data):")
                 sample_chart = os.path.join(chart_dir, chart_files[0])
-                st.image(sample_chart, caption="Example: Bitcoin candlestick chart", use_column_width=True)
+                st.image(sample_chart, caption="Example: Bitcoin candlestick chart", use_container_width=True)
 
 
 elif page == "Historical Analysis":
