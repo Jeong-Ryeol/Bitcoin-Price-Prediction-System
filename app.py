@@ -890,42 +890,36 @@ elif page == "WEKA Analysis":
 elif page == "About":
     st.header("About This Project")
 
-    # GitHub Repository Link with Logo
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("""
-        <div style='text-align: center; padding: 20px; background-color: #f0f2f6; border-radius: 10px;'>
-            <h3>📂 Source Code Repository</h3>
-            <a href='https://github.com/Jeong-Ryeol/Bitcoin-Price-Prediction-System' target='_blank'>
-                <img src='https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png' width='80'>
-            </a>
-            <br><br>
-            <a href='https://github.com/Jeong-Ryeol/Bitcoin-Price-Prediction-System' target='_blank'
-               style='text-decoration: none; color: #0366d6; font-size: 18px; font-weight: bold;'>
-                View on GitHub →
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
+    # GitHub Repository Link
+    st.markdown("""
+    <div style='margin: 20px 0; padding: 15px; border-left: 3px solid #0366d6;'>
+        <strong>Source Code:</strong>
+        <a href='https://github.com/Jeong-Ryeol/Bitcoin-Price-Prediction-System'
+           target='_blank' style='color: #0366d6; text-decoration: none;'>
+            github.com/Jeong-Ryeol/Bitcoin-Price-Prediction-System
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("---")
 
     st.markdown("""
-    ## 📊 Project Overview
+    ## Project Overview
 
     **비트코인 가격 예측 시스템**은 데이터마이닝 기법을 활용하여
     암호화폐 시장의 가격 방향을 예측하는 머신러닝 프로젝트입니다.
 
-    ### ✨ Key Features
+    ### Key Features
 
-    - **실시간 데이터 수집**: Upbit Public API를 통한 과거 및 실시간 데이터 수집
-    - **차트 패턴 인식**: 이동평균선, RSI, 거래량 기반 패턴 분석
-    - **머신러닝 예측**: Random Forest, SVM, Naive Bayes, Decision Tree 활용
-    - **웹 대시보드**: 인터랙티브 시각화 및 실시간 예측
-    - **차트 이미지 분석**: 업로드한 차트 스크린샷의 패턴 인식
+    - Real-time data collection via Upbit Public API
+    - Technical indicator analysis (Moving Averages, RSI, Volume)
+    - Multiple ML algorithms (Random Forest, SVM, Naive Bayes, Decision Tree)
+    - Interactive web dashboard with live predictions
+    - Chart image pattern recognition
 
     ---
 
-    ## 🔧 Technology Stack
+    ## Technology Stack
 
     | Category | Technologies |
     |----------|-------------|
@@ -939,80 +933,64 @@ elif page == "About":
 
     ---
 
-    ## 📈 Data Attributes Explained
+    ## Data Attributes
 
-    ### 1️⃣ Price Data (5 attributes)
+    ### Price Data (5 attributes)
 
-    - **Open**: 해당 시간대의 시작 가격
-    - **High**: 해당 시간대의 최고 가격
-    - **Low**: 해당 시간대의 최저 가격
-    - **Close**: 해당 시간대의 종료 가격 (예측에 가장 중요)
-    - **Volume**: 해당 시간대의 거래량 (시장 활성도 지표)
+    - **Open**: 시간대 시작 가격
+    - **High**: 시간대 최고 가격
+    - **Low**: 시간대 최저 가격
+    - **Close**: 시간대 종료 가격 (예측에 가장 중요)
+    - **Volume**: 거래량 (시장 활성도 지표)
 
-    ### 2️⃣ Technical Indicators (3 attributes)
+    ### Technical Indicators (3 attributes)
 
     **MA Cross (Moving Average Crossover)**
-    - **Golden Cross**: 단기 이동평균(5시간)이 장기 이동평균(20시간)을 상향 돌파 → 상승 신호
-    - **Death Cross**: 단기 이동평균이 장기 이동평균을 하향 돌파 → 하락 신호
-    - **Neutral**: 교차 없음 → 중립
+    - Golden Cross: 단기 이동평균(5시간)이 장기 이동평균(20시간)을 상향 돌파
+    - Death Cross: 단기 이동평균이 장기 이동평균을 하향 돌파
+    - Neutral: 교차 없음
 
     **RSI Signal (Relative Strength Index)**
-    - **Overbought**: RSI > 70 → 과매수 상태, 하락 가능성
-    - **Oversold**: RSI < 30 → 과매도 상태, 상승 가능성
-    - **Neutral**: 30 ≤ RSI ≤ 70 → 정상 범위
+    - Overbought: RSI > 70 (과매수 상태)
+    - Oversold: RSI < 30 (과매도 상태)
+    - Neutral: 30 ≤ RSI ≤ 70
 
     **Volume Spike**
-    - **High**: 거래량이 평균의 1.5배 이상 → 강한 시장 관심
-    - **Low**: 거래량이 평균의 0.5배 이하 → 낮은 시장 관심
-    - **Normal**: 평균 수준의 거래량
+    - High: 거래량이 평균의 1.5배 이상
+    - Low: 거래량이 평균의 0.5배 이하
+    - Normal: 평균 수준의 거래량
 
-    ### 3️⃣ Target Class (예측 대상)
+    ### Target Class
 
-    **Price Direction** (1시간 후 가격 변동 방향)
-    - **UP**: 현재 대비 0.3% 이상 상승
-    - **DOWN**: 현재 대비 0.3% 이상 하락
-    - **STABLE**: -0.3% ~ +0.3% 범위 내 유지
-
-    ---
-
-    ## 🎯 How to Use This Website
-
-    ### Navigation
-    왼쪽 사이드바에서 원하는 페이지를 선택하세요:
-
-    1. **Dashboard** 📊
-       - 현재 Bitcoin 가격 정보 확인
-       - 실시간 차트 및 기술적 지표 시각화
-       - 과거 데이터 통계 요약
-
-    2. **Live Prediction** 🔮
-       - 실시간 Bitcoin 데이터 수집
-       - ML 모델을 통한 1시간 후 가격 방향 예측
-       - 4가지 알고리즘 비교 (Random Forest, SVM, Naive Bayes, Decision Tree)
-
-    3. **Chart Image Analysis** 🖼️
-       - Bitcoin 차트 스크린샷 업로드
-       - AI 기반 차트 패턴 인식
-       - Bullish/Bearish 트렌드 분석
-
-    4. **Historical Analysis** 📈
-       - 수집된 과거 데이터 탐색
-       - 시간대별 가격 변동 분석
-       - 기술적 지표 트렌드 확인
-
-    5. **WEKA Analysis** 🔬
-       - WEKA 소프트웨어 없이 웹에서 직접 분석 결과 확인
-       - Classification, Clustering, Association Rules 결과 보기
-       - ARFF 파일 다운로드
-
-    6. **About** ℹ️
-       - 프로젝트 상세 정보
-       - GitHub 소스 코드 링크
-       - 개발자 정보
+    **Price Direction** (1시간 후 가격 변동)
+    - UP: 현재 대비 0.3% 이상 상승
+    - DOWN: 현재 대비 0.3% 이상 하락
+    - STABLE: -0.3% ~ +0.3% 범위 내 유지
 
     ---
 
-    ## 💻 Local Installation & Usage
+    ## How to Use This Website
+
+    ### Dashboard
+    현재 Bitcoin 가격 정보, 실시간 차트, 기술적 지표 시각화 및 데이터 통계 요약
+
+    ### Live Prediction
+    실시간 Bitcoin 데이터를 수집하고 ML 모델을 통해 1시간 후 가격 방향 예측
+    (Random Forest, SVM, Naive Bayes, Decision Tree 비교)
+
+    ### Chart Image Analysis
+    Bitcoin 차트 스크린샷을 업로드하여 AI 기반 패턴 인식 및 트렌드 분석
+
+    ### Historical Analysis
+    수집된 과거 데이터 탐색 및 시간대별 가격 변동, 기술적 지표 트렌드 확인
+
+    ### WEKA Analysis
+    WEKA 소프트웨어 없이 웹에서 Classification, Clustering, Association Rules 결과 확인
+    ARFF 파일 다운로드 가능
+
+    ---
+
+    ## Local Installation & Usage
 
     ### Prerequisites
     ```bash
@@ -1062,43 +1040,39 @@ elif page == "About":
 
     ---
 
-    ## 🎓 Academic Purpose
+    ## Academic Purpose
 
-    이 프로젝트는 **데이터마이닝** 과목의 일환으로 진행되었으며,
-    다음과 같은 학습 목표를 달성합니다:
+    이 프로젝트는 데이터마이닝 과목의 일환으로 진행되었으며, 다음과 같은 학습 목표를 달성합니다:
 
-    - ✅ 실제 데이터 수집 및 전처리 경험
-    - ✅ 시계열 데이터의 특성 이해
-    - ✅ WEKA를 활용한 데이터 마이닝 실습
-    - ✅ 다양한 머신러닝 알고리즘 비교 분석
-    - ✅ 웹 기반 대시보드 개발 및 배포
+    - 실제 데이터 수집 및 전처리 경험
+    - 시계열 데이터의 특성 이해
+    - WEKA를 활용한 데이터 마이닝 실습
+    - 다양한 머신러닝 알고리즘 비교 분석
+    - 웹 기반 대시보드 개발 및 배포
 
-    **총 데이터 인스턴스**: 199개 (WEKA 요구사항 100+ 충족)
-    **총 속성 개수**: 9개 (8 features + 1 class, WEKA 요구사항 4+ 충족)
-
-    ---
-
-    ## ⚠️ Disclaimer
-
-    **주의사항**:
-    - 이 시스템은 **교육 목적**으로만 제작되었습니다
-    - 실제 투자 결정에 사용해서는 **절대 안 됩니다**
-    - 과거 데이터는 미래 수익을 보장하지 않습니다
-    - 암호화폐 투자는 높은 리스크를 동반합니다
+    **Dataset Statistics**
+    - Total instances: 199 (WEKA requirement: 100+)
+    - Total attributes: 9 (8 features + 1 class, WEKA requirement: 4+)
 
     ---
 
-    ## 👨‍💻 Developer
+    ## Disclaimer
+
+    이 시스템은 교육 목적으로만 제작되었습니다. 실제 투자 결정에 사용해서는 안 됩니다.
+    과거 데이터는 미래 수익을 보장하지 않으며, 암호화폐 투자는 높은 리스크를 동반합니다.
+
+    ---
+
+    ## Developer
 
     **Jeong Won Ryeol**
     Department of Computer Science and Engineering
 
-    📧 Contact: [GitHub](https://github.com/Jeong-Ryeol)
-    📂 Project Repository: [Bitcoin-Price-Prediction-System](https://github.com/Jeong-Ryeol/Bitcoin-Price-Prediction-System)
+    GitHub: [github.com/Jeong-Ryeol](https://github.com/Jeong-Ryeol)
     """)
 
     st.markdown("---")
-    st.markdown("Made with ❤️ for Data Mining Project")
+    st.markdown("Data Mining Project 2025")
 
 
 # Footer
