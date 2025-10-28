@@ -1,0 +1,54 @@
+=== Run information ===
+
+Scheme:       weka.classifiers.trees.RandomForest -P 100 -I 100 -num-slots 1 -K 0 -M 1.0 -V 0.001 -S 1
+Relation:     bitcoin_price_prediction
+Instances:    199
+Attributes:   9
+              open_price
+              high_price
+              low_price
+              close_price
+              volume
+              ma_cross
+              rsi_signal
+              volume_spike
+              price_direction
+Test mode:    10-fold cross-validation
+
+=== Classifier model (full training set) ===
+
+RandomForest
+
+Bagging with 100 iterations and base learner
+
+weka.classifiers.trees.RandomTree -K 0 -M 1.0 -V 0.001 -S 1 -do-not-check-capabilities
+
+Time taken to build model: 0.03 seconds
+
+=== Stratified cross-validation ===
+=== Summary ===
+
+Correctly Classified Instances         198               99.4975 %
+Incorrectly Classified Instances         1                0.5025 %
+Kappa statistic                          0     
+Mean absolute error                      0.0071
+Root mean squared error                  0.0639
+Relative absolute error                 50.8172 %
+Root relative squared error            109.2124 %
+Total Number of Instances              199     
+
+=== Detailed Accuracy By Class ===
+
+                 TP Rate  FP Rate  Precision  Recall   F-Measure  MCC      ROC Area  PRC Area  Class
+                 0.000    0.000    ?          0.000    ?          ?        0.460     0.005     UP
+                 ?        0.000    ?          ?        ?          ?        ?         ?         DOWN
+                 1.000    1.000    0.995      1.000    0.997      ?        0.460     0.995     STABLE
+Weighted Avg.    0.995    0.995    ?          0.995    ?          ?        0.460     0.990     
+
+=== Confusion Matrix ===
+
+   a   b   c   <-- classified as
+   0   0   1 |   a = UP
+   0   0   0 |   b = DOWN
+   0   0 198 |   c = STABLE
+
