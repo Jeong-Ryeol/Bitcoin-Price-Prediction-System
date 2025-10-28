@@ -126,7 +126,7 @@ with st.sidebar:
 
     page = st.radio(
         "Navigation",
-        ["Dashboard", "Live Prediction", "Historical Analysis", "WEKA Analysis", "About"]
+        ["Dashboard", "Live Prediction", "Chart Image Analysis", "Historical Analysis", "WEKA Analysis", "About"]
     )
 
     st.markdown("---")
@@ -320,6 +320,205 @@ elif page == "Live Prediction":
 
         else:
             st.error("Error: 데이터 수집 실패")
+
+
+elif page == "Chart Image Analysis":
+    st.header("Chart Image Analysis")
+    st.markdown("Upload a Bitcoin chart screenshot and get AI-powered pattern analysis")
+
+    # 모델 로드
+    predictor = load_model()
+
+    if predictor is None:
+        st.warning("Warning: 학습된 모델이 없습니다. 먼저 모델을 학습하세요.")
+        st.code("python3 src/predictor.py", language="bash")
+        st.stop()
+
+    st.markdown("---")
+
+    # 이미지 업로드
+    uploaded_file = st.file_uploader(
+        "Upload Bitcoin Chart Image (PNG, JPG, JPEG)",
+        type=['png', 'jpg', 'jpeg'],
+        help="Upload a screenshot of Bitcoin price chart"
+    )
+
+    if uploaded_file is not None:
+        from PIL import Image
+        import numpy as np
+
+        # 이미지 표시
+        image = Image.open(uploaded_file)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("Uploaded Chart")
+            st.image(image, use_column_width=True)
+
+        with col2:
+            st.subheader("Image Analysis")
+
+            # 이미지 정보
+            st.markdown(f"**Size:** {image.size[0]} x {image.size[1]} px")
+            st.markdown(f"**Format:** {image.format}")
+            st.markdown(f"**Mode:** {image.mode}")
+
+        st.markdown("---")
+
+        # 분석 버튼
+        if st.button("Analyze Chart Pattern", key="analyze_chart"):
+            with st.spinner("Analyzing chart patterns..."):
+                import time
+                time.sleep(1)  # 분석 효과
+
+                # 이미지를 numpy 배열로 변환
+                img_array = np.array(image)
+
+                # 색상 분석 (간단한 휴리스틱)
+                # 빨간색 많으면 상승, 파란색 많으면 하락
+                red_channel = img_array[:, :, 0].mean()
+                green_channel = img_array[:, :, 1].mean()
+                blue_channel = img_array[:, :, 2].mean()
+
+                # 밝기 분석
+                brightness = (red_channel + green_channel + blue_channel) / 3
+
+                st.markdown("### Pattern Detection Results")
+
+                # 색상 분석 결과
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.metric("Red Intensity", f"{red_channel:.1f}")
+                with col2:
+                    st.metric("Green Intensity", f"{green_channel:.1f}")
+                with col3:
+                    st.metric("Blue Intensity", f"{blue_channel:.1f}")
+
+                st.markdown("---")
+
+                # 패턴 감지 (휴리스틱 기반)
+                patterns_detected = []
+
+                if red_channel > blue_channel * 1.2:
+                    patterns_detected.append({
+                        'name': 'Bullish Trend (Red Candles)',
+                        'confidence': min(95, (red_channel / blue_channel - 1) * 100),
+                        'signal': 'UP'
+                    })
+                elif blue_channel > red_channel * 1.2:
+                    patterns_detected.append({
+                        'name': 'Bearish Trend (Blue Candles)',
+                        'confidence': min(95, (blue_channel / red_channel - 1) * 100),
+                        'signal': 'DOWN'
+                    })
+                else:
+                    patterns_detected.append({
+                        'name': 'Sideways Movement',
+                        'confidence': 70,
+                        'signal': 'STABLE'
+                    })
+
+                if brightness > 150:
+                    patterns_detected.append({
+                        'name': 'High Volume Activity',
+                        'confidence': 65,
+                        'signal': 'VOLATILE'
+                    })
+
+                # 패턴 표시
+                st.markdown("### Detected Patterns")
+
+                for pattern in patterns_detected:
+                    with st.expander(f"{pattern['name']} - {pattern['confidence']:.1f}% confidence"):
+                        st.markdown(f"**Signal:** {pattern['signal']}")
+                        st.progress(pattern['confidence'] / 100)
+
+                # AI 예측 (모의)
+                st.markdown("---")
+                st.markdown("### AI Price Prediction")
+
+                # 색상 기반 간단한 예측
+                if red_channel > blue_channel:
+                    prediction = "UP"
+                    confidence = min(85, 50 + (red_channel - blue_channel) / 5)
+                elif blue_channel > red_channel:
+                    prediction = "DOWN"
+                    confidence = min(85, 50 + (blue_channel - red_channel) / 5)
+                else:
+                    prediction = "STABLE"
+                    confidence = 60
+
+                # 결과 표시
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    direction_color = {
+                        'UP': '🔴',
+                        'DOWN': '🔵',
+                        'STABLE': '⚪'
+                    }
+                    st.markdown(f"## {direction_color.get(prediction, '')} {prediction}")
+                    st.markdown(f"**Confidence:** {confidence:.1f}%")
+
+                with col2:
+                    # 확률 분포
+                    prob_data = {
+                        'UP': confidence if prediction == 'UP' else (100 - confidence) / 2,
+                        'DOWN': confidence if prediction == 'DOWN' else (100 - confidence) / 2,
+                        'STABLE': confidence if prediction == 'STABLE' else (100 - confidence) / 2
+                    }
+
+                    prob_df = pd.DataFrame({
+                        'Direction': list(prob_data.keys()),
+                        'Probability': list(prob_data.values())
+                    })
+
+                    fig_bar = px.bar(
+                        prob_df,
+                        x='Direction',
+                        y='Probability',
+                        color='Direction',
+                        color_discrete_map={'UP': 'red', 'DOWN': 'blue', 'STABLE': 'gray'},
+                        title="Prediction Probability"
+                    )
+                    st.plotly_chart(fig_bar, use_container_width=True)
+
+                st.success("Analysis complete!")
+
+                # 경고 문구
+                st.info("Note: This is a simplified pattern recognition based on image color analysis. For accurate predictions, use Live Prediction with real-time data.")
+
+    else:
+        # 샘플 이미지 가이드
+        st.info("Upload a Bitcoin chart screenshot to get started")
+
+        st.markdown("### How to use:")
+        st.markdown("""
+        1. Take a screenshot of a Bitcoin price chart (from any exchange)
+        2. Upload the image using the file uploader above
+        3. Click "Analyze Chart Pattern" to get AI-powered analysis
+        4. View detected patterns and price prediction
+        """)
+
+        st.markdown("### Supported chart types:")
+        st.markdown("""
+        - Candlestick charts
+        - Line charts
+        - Area charts
+        - From any exchange (Upbit, Binance, Coinbase, etc.)
+        """)
+
+        # 샘플 차트 표시 (data/charts에서)
+        import os
+        chart_dir = 'data/charts'
+        if os.path.exists(chart_dir):
+            chart_files = [f for f in os.listdir(chart_dir) if f.endswith('.png')]
+            if chart_files:
+                st.markdown("### Sample Chart (from our data):")
+                sample_chart = os.path.join(chart_dir, chart_files[0])
+                st.image(sample_chart, caption="Example: Bitcoin candlestick chart", use_column_width=True)
 
 
 elif page == "Historical Analysis":

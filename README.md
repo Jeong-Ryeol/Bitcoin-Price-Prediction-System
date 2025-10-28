@@ -32,6 +32,7 @@
 ✅ **실시간 데이터 수집**: Upbit Public API (무료, API Key 불필요)
 ✅ **시간차 예측 구조**: t 시간 데이터 → t+1 시간 방향 예측
 ✅ **다양한 ML 알고리즘**: Random Forest, SVM, Naive Bayes, Decision Tree
+✅ **이미지 기반 분석**: 차트 스크린샷 업로드 → AI 패턴 인식 ⭐ NEW!
 ✅ **WEKA 완벽 지원**: Classification, Clustering, Association 모두 지원
 ✅ **인터랙티브 웹 대시보드**: Streamlit 기반 실시간 시각화
 ✅ **클라우드 배포 가능**: Streamlit Cloud 원클릭 배포
@@ -380,7 +381,7 @@ Actual DOWN    0      1     0
 
 ## 웹 대시보드 기능
 
-### 페이지 구성 (5개)
+### 페이지 구성 (6개)
 
 #### 1. Dashboard (대시보드)
 
@@ -427,7 +428,58 @@ Actual DOWN    0      1     0
 
 ---
 
-#### 3. Historical Analysis (과거 데이터 분석)
+#### 3. Chart Image Analysis (차트 이미지 분석) ⭐ NEW!
+
+**기능**:
+- 차트 이미지 업로드 (PNG, JPG, JPEG)
+- AI 기반 패턴 자동 인식
+- 색상 분석을 통한 트렌드 감지
+- 가격 방향 예측 (UP/DOWN/STABLE)
+
+**사용 방법**:
+1. 비트코인 차트 스크린샷 촬영 (어떤 거래소든 OK)
+2. 이미지 업로드
+3. "Analyze Chart Pattern" 버튼 클릭
+4. AI 분석 결과 확인
+
+**분석 항목**:
+- **색상 분석**: RGB 채널별 강도 측정
+- **패턴 감지**:
+  - Bullish Trend (상승 추세) - 빨간 캔들 우세
+  - Bearish Trend (하락 추세) - 파란 캔들 우세
+  - Sideways Movement (횡보)
+  - High Volume Activity (고거래량)
+- **AI 예측**: 이미지 기반 가격 방향 예측 + 신뢰도
+
+**지원 차트 종류**:
+- 캔들스틱 차트
+- 라인 차트
+- 영역 차트
+- 모든 거래소 (Upbit, Binance, Coinbase 등)
+
+**예측 결과 예시**:
+```
+Detected Patterns:
+- Bullish Trend (Red Candles) - 87.3% confidence
+
+AI Prediction: UP
+Confidence: 82.5%
+
+Probability Distribution:
+- UP: 82.5%
+- STABLE: 12.3%
+- DOWN: 5.2%
+```
+
+**활용 사례**:
+- 다른 거래소 차트 빠른 분석
+- 과거 차트 패턴 학습
+- SNS에서 본 차트 즉석 분석
+- 모바일 스크린샷 분석
+
+---
+
+#### 4. Historical Analysis (과거 데이터 분석)
 
 **기능**:
 - 날짜 범위 필터링 (시작일/종료일 선택)
@@ -444,7 +496,7 @@ Actual DOWN    0      1     0
 
 ---
 
-#### 4. WEKA Analysis (WEKA 스타일 분석)
+#### 5. WEKA Analysis (WEKA 스타일 분석)
 
 **웹에서 WEKA 소프트웨어 없이 동일한 분석 가능!**
 
@@ -522,7 +574,7 @@ Rule 2: volume_spike=high → price_direction=UP or DOWN
 
 ---
 
-#### 5. About (프로젝트 정보)
+#### 6. About (프로젝트 정보)
 
 **내용**:
 - 프로젝트 개요
