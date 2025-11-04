@@ -14,6 +14,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from mlxtend.classifier import OneRClassifier
 
 
 class BitcoinPredictor:
@@ -61,7 +62,7 @@ class BitcoinPredictor:
         Args:
             X: 피처 행렬
             y: 타겟 벡터
-            model_type: 'random_forest', 'decision_tree', 'naive_bayes', 'svm'
+            model_type: 'oner', 'random_forest', 'decision_tree', 'naive_bayes', 'svm'
 
         Returns:
             학습된 모델
@@ -70,7 +71,9 @@ class BitcoinPredictor:
         print("=" * 70)
 
         # 모델 선택
-        if model_type == 'random_forest':
+        if model_type == 'oner':
+            self.model = OneRClassifier()
+        elif model_type == 'random_forest':
             self.model = RandomForestClassifier(n_estimators=100, random_state=42)
         elif model_type == 'decision_tree':
             self.model = DecisionTreeClassifier(max_depth=10, random_state=42)
@@ -194,18 +197,31 @@ def compare_models(X_train, X_test, y_train, y_test):
     print("🔬 여러 모델 비교")
     print("=" * 70)
 
+    # OneR을 위한 레이블 인코딩
+    le = LabelEncoder()
+    y_train_encoded = le.fit_transform(y_train)
+    y_test_encoded = le.transform(y_test)
+
     models = {
-        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
-        'Decision Tree': DecisionTreeClassifier(max_depth=10, random_state=42),
+        'OneR': OneRClassifier(),
         'Naive Bayes': GaussianNB(),
+        'Decision Tree (J48)': DecisionTreeClassifier(max_depth=10, random_state=42),
+        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
         'SVM': SVC(kernel='rbf', random_state=42)
     }
 
     results = {}
 
     for name, model in models.items():
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
+        # OneR은 인코딩된 레이블 사용
+        if name == 'OneR':
+            model.fit(X_train, y_train_encoded)
+            y_pred_encoded = model.predict(X_test)
+            y_pred = le.inverse_transform(y_pred_encoded)
+        else:
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+
         accuracy = accuracy_score(y_test, y_pred)
         results[name] = accuracy
         print(f"\n{name}: {accuracy:.2%}")
@@ -255,9 +271,10 @@ def main():
 
     # 최고 모델로 학습
     model_type_map = {
-        'Random Forest': 'random_forest',
-        'Decision Tree': 'decision_tree',
+        'OneR': 'oner',
         'Naive Bayes': 'naive_bayes',
+        'Decision Tree (J48)': 'decision_tree',
+        'Random Forest': 'random_forest',
         'SVM': 'svm'
     }
 

@@ -100,6 +100,125 @@ class BitcoinDataCollector:
 
         return df
 
+    def collect_yearly_data(self, days=365, output_dir='data/raw'):
+        """
+        1년치 데이터 대량 수집 (페이지네이션)
+
+        Args:
+            days: 수집할 일수 (기본 365일)
+            output_dir: 저장 디렉토리
+
+        Returns:
+            DataFrame: 수집된 데이터
+        """
+        print("=" * 70)
+        print(f"📊 비트코인 {days}일 데이터 수집 시작 (총 {days * 24}개 인스턴스)")
+        print("=" * 70)
+
+        all_data = []
+        total_hours = days * 24
+        batches = (total_hours // 200) + (1 if total_hours % 200 else 0)
+
+        # 현재 시간부터 역순으로 수집
+        to_timestamp = None
+
+        for batch_num in range(batches):
+            print(f"\n📥 배치 {batch_num + 1}/{batches} 수집 중...")
+
+            # API 호출
+            df_batch = self.get_candles_hour(count=200, to=to_timestamp)
+
+            if df_batch is None or len(df_batch) == 0:
+                print(f"   ⚠️ 배치 {batch_num + 1} 수집 실패")
+                break
+
+            all_data.append(df_batch)
+            print(f"   ✅ {len(df_batch)}개 수집 완료")
+            print(f"   기간: {df_batch['timestamp'].min()} ~ {df_batch['timestamp'].max()}")
+
+            # 다음 배치의 to 파라미터 설정 (가장 오래된 timestamp)
+            to_timestamp = df_batch['timestamp'].min().strftime('%Y-%m-%dT%H:%M:%S')
+
+            # API rate limit 준수 (초당 10회)
+            time.sleep(0.15)
+
+            # 목표 개수에 도달하면 중단
+            if sum(len(df) for df in all_data) >= total_hours:
+                break
+
+        # 모든 배치 합치기
+        if not all_data:
+            print("\n❌ 데이터 수집 실패")
+            return None
+
+        df = pd.concat(all_data, ignore_index=True)
+
+        # 중복 제거 및 정렬
+        df = df.drop_duplicates(subset=['timestamp']).sort_values('timestamp').reset_index(drop=True)
+
+        # 필요한 개수만큼 자르기
+        df = df.tail(total_hours)
+
+        print(f"\n{'=' * 70}")
+        print(f"✅ 총 {len(df)}개 캔들 수집 완료")
+        print(f"   기간: {df['timestamp'].min()} ~ {df['timestamp'].max()}")
+        print(f"   가격 범위: {df['close'].min():,.0f}원 ~ {df['close'].max():,.0f}원")
+        print(f"{'=' * 70}")
+
+        # 저장
+        os.makedirs(output_dir, exist_ok=True)
+        csv_path = os.path.join(output_dir, 'bitcoin_candles_yearly.csv')
+        df.to_csv(csv_path, index=False)
+        print(f"\n💾 저장 완료: {csv_path}")
+
+        return df
+
+    def append_latest_data(self, existing_csv='data/raw/bitcoin_candles.csv'):
+        """
+        기존 데이터에 최신 데이터 추가 (>> 방식)
+
+        Args:
+            existing_csv: 기존 CSV 파일 경로
+
+        Returns:
+            DataFrame: 업데이트된 데이터
+        """
+        print("\n📡 최신 데이터 업데이트 중...")
+
+        # 기존 데이터 로드
+        if os.path.exists(existing_csv):
+            df_existing = pd.read_csv(existing_csv)
+            df_existing['timestamp'] = pd.to_datetime(df_existing['timestamp'])
+            last_timestamp = df_existing['timestamp'].max()
+            print(f"   마지막 데이터: {last_timestamp}")
+        else:
+            print("   ⚠️ 기존 데이터 없음. 새로 수집합니다.")
+            return self.collect_historical_data()
+
+        # 최신 데이터 수집
+        df_new = self.get_candles_hour(count=200)
+
+        if df_new is None:
+            print("   ❌ 최신 데이터 수집 실패")
+            return df_existing
+
+        # 기존 데이터 이후의 새 데이터만 필터링
+        df_new = df_new[df_new['timestamp'] > last_timestamp]
+
+        if len(df_new) == 0:
+            print("   ℹ️ 새로운 데이터 없음")
+            return df_existing
+
+        # 데이터 합치기
+        df_updated = pd.concat([df_existing, df_new], ignore_index=True)
+        df_updated = df_updated.drop_duplicates(subset=['timestamp']).sort_values('timestamp').reset_index(drop=True)
+
+        # 저장
+        df_updated.to_csv(existing_csv, index=False)
+        print(f"   ✅ {len(df_new)}개 새 데이터 추가 완료 (총 {len(df_updated)}개)")
+
+        return df_updated
+
     def add_future_labels(self, df, hours_ahead=1):
         """
         미래 가격 방향 라벨 추가 (예측 타겟)
