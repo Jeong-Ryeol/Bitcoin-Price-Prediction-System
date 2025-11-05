@@ -1342,18 +1342,6 @@ elif page == "Historical Analysis":
         st.metric("Avg Volume", f"{filtered_df['volume'].mean():,.2f}")
         st.metric("Total Volume", f"{filtered_df['volume'].sum():,.2f}")
 
-    # 데이터 테이블
-    st.markdown("---")
-    st.subheader("📋 Data Table")
-
-    display_cols = ['timestamp', 'open', 'high', 'low', 'close', 'volume',
-                    'ma_cross', 'rsi_signal', 'volume_spike', 'price_direction']
-
-    st.dataframe(
-        filtered_df[display_cols].tail(50),
-        use_container_width=True
-    )
-
 
 elif page == "WEKA Analysis":
     st.header("🎓 WEKA-Style Analysis")
