@@ -128,8 +128,8 @@ with st.sidebar:
 
     page = st.radio(
         "Navigation",
-        ["Dashboard", "Live Prediction", "Manual Prediction", "Model Performance",
-         "Dataset Explorer", "Chart Image Analysis", "Historical Analysis", "WEKA Analysis", "About"]
+        ["Dashboard", "Live Prediction", "Manual Prediction", "Dataset Explorer",
+         "Chart Image Analysis", "Historical Analysis", "WEKA Analysis", "Model Performance", "About"]
     )
 
     st.markdown("---")
@@ -699,55 +699,56 @@ elif page == "Model Performance":
 
     # 최고 모델 강조
     summary = tracker.get_summary()
-    st.success(f"🏆 **최고 성능 모델:** {summary['best_model']} ({summary['best_accuracy']:.2%})")
+    st.success(f"최고 성능 모델: {summary['best_model']} ({summary['best_accuracy']:.2%})")
 
     # SVM 선택 이유 설명
     st.markdown("---")
-    st.markdown("### 🎯 SVM 알고리즘 선택 이유")
+    st.markdown("### SVM 알고리즘 선택 이유")
 
     st.markdown("""
-    본 프로젝트에서는 **SVM (Support Vector Machine)**을 최종 예측 모델로 선택했습니다.
+    본 프로젝트에서는 SVM (Support Vector Machine)을 최종 예측 모델로 선택하였습니다.
 
-    #### 선택 근거
+    #### 1. 선택 근거
 
-    1. **최고 정확도**
-       - 테스트 데이터 정확도: 약 69%
-       - 다른 알고리즘 대비 2-5% 높은 성능
-       - 교차 검증 점수도 가장 안정적
+    **최고 정확도**
 
-    2. **비선형 패턴 포착**
-       - RBF 커널을 사용하여 복잡한 비선형 패턴 학습
-       - 가격, 거래량, 기술적 지표 간의 복잡한 상호작용 포착
-       - 암호화폐 시장의 비선형적 특성에 적합
+    SVM은 테스트 데이터에서 약 69%의 정확도를 기록하여 다른 알고리즘 대비 2-5% 높은 성능을 보였습니다.
+    교차 검증 점수도 가장 안정적으로 나타났으며, 표준편차가 낮아 일관된 성능을 보장합니다.
 
-    3. **일반화 성능**
-       - 마진 최대화를 통한 과적합 방지
-       - 새로운 데이터에 대한 예측 성능 우수
-       - 교차 검증 표준편차가 낮아 안정적
+    **비선형 패턴 학습**
 
-    4. **고차원 데이터 처리**
-       - 8개 특성을 효과적으로 처리
-       - 특성 간 복잡한 관계를 고차원 공간에서 분리
+    RBF 커널을 사용하여 가격, 거래량, 기술적 지표 간의 복잡한 비선형 관계를 효과적으로 학습할 수 있습니다.
+    암호화폐 시장은 단순한 선형 관계로 설명되지 않는 경우가 많기 때문에, 이러한 특성이 중요한 장점으로 작용합니다.
 
-    #### 다른 알고리즘과의 비교
+    **과적합 방지**
 
-    - **Naive Bayes (64%)**: 빠르지만 특성 간 독립성 가정이 현실과 맞지 않음
-    - **Decision Tree (67%)**: 해석은 쉽지만 과적합 경향, 불안정
-    - **Random Forest (67%)**: 안정적이지만 SVM보다 정확도 낮음
+    SVM의 마진 최대화 원리는 학습 데이터에 지나치게 맞추지 않고 일반화 성능을 높이는 데 도움이 됩니다.
+    이를 통해 새로운 데이터에 대한 예측 성능도 우수하게 유지됩니다.
 
-    #### 한계점
+    #### 2. 다른 알고리즘과의 비교
 
-    - **클래스 불균형**: STABLE 클래스(70.6%)에 편향되어 UP/DOWN 예측 어려움
-    - **학습 시간**: 다른 알고리즘 대비 학습 시간이 오래 걸림 (5-10초)
-    - **해석 어려움**: 블랙박스 모델로 의사결정 과정 설명 어려움
+    Naive Bayes는 64%의 정확도로 빠르지만, 특성 간 독립성 가정이 실제 데이터와 맞지 않습니다.
+    Decision Tree는 67%로 해석이 쉽다는 장점이 있으나 과적합 경향이 있고 불안정합니다.
+    Random Forest는 67%로 안정적이지만 SVM보다 정확도가 낮았습니다.
 
-    #### 개선 방안
+    #### 3. 한계점 및 개선 방향
 
-    - `class_weight='balanced'` 파라미터로 클래스 불균형 완화
-    - SMOTE 등 오버샘플링 기법 적용
-    - 하이퍼파라미터 튜닝 (Grid Search, Bayesian Optimization)
+    **클래스 불균형 문제**
 
-    상세한 Confusion Matrix와 클래스별 성능은 **WEKA Analysis** 페이지에서 확인할 수 있습니다.
+    현재 데이터셋은 STABLE 클래스가 70.6%를 차지하여 UP/DOWN 예측이 어렵습니다.
+    이를 해결하기 위해 class_weight='balanced' 파라미터나 SMOTE 오버샘플링 기법을 적용할 수 있습니다.
+
+    **학습 시간**
+
+    다른 알고리즘에 비해 학습 시간이 5-10초 정도로 상대적으로 오래 걸립니다.
+    하지만 정확도 향상을 고려하면 충분히 감수할 만한 수준입니다.
+
+    **모델 해석**
+
+    SVM은 블랙박스 모델로 의사결정 과정을 직접적으로 설명하기 어렵습니다.
+    이는 Decision Tree 같은 모델에 비해 단점으로 작용할 수 있으나, 본 프로젝트에서는 정확도를 우선시하였습니다.
+
+    더 자세한 Confusion Matrix와 클래스별 성능 분석은 WEKA Analysis 페이지에서 확인할 수 있습니다.
     """)
 
 
