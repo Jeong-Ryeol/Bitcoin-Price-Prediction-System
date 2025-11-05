@@ -657,7 +657,6 @@ elif page == "Model Performance":
                 )
 
         st.success("Success: 모든 모델 평가 완료!")
-        st.experimental_rerun()
 
     # 평가 결과 가져오기
     df_performance = tracker.get_all_evaluations()
