@@ -768,8 +768,9 @@ elif page == "Model Performance":
             # 히트맵
             import plotly.figure_factory as ff
 
-            # 클래스 이름
-            classes = ['DOWN', 'STABLE', 'UP']
+            # 클래스 이름 (실제 데이터에서 가져오기)
+            # sklearn의 confusion_matrix는 sorted unique labels 사용
+            classes = sorted(df['price_direction'].unique())
 
             fig_heatmap = ff.create_annotated_heatmap(
                 cm,
@@ -798,6 +799,11 @@ elif page == "Model Performance":
                 if cm[i].sum() > 0:
                     acc = cm[i][i] / cm[i].sum()
                     class_accuracies.append({'Class': cls, 'Accuracy': acc})
+
+            # 클래스 불균형 경고
+            zero_accuracy_classes = [item['Class'] for item in class_accuracies if item['Accuracy'] == 0]
+            if zero_accuracy_classes:
+                st.warning(f"⚠️ 클래스 불균형 문제: {', '.join(zero_accuracy_classes)} 클래스를 전혀 예측하지 못하고 있습니다. 모델이 다수 클래스(STABLE)만 예측하는 경향이 있습니다.")
 
             df_class_acc = pd.DataFrame(class_accuracies)
 
