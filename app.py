@@ -624,7 +624,6 @@ elif page == "Model Performance":
 
             # 모델 목록
             models = {
-                'OneR': OneRClassifier(),
                 'Naive Bayes': GaussianNB(),
                 'Decision Tree (J48)': DecisionTreeClassifier(max_depth=10, random_state=42),
                 'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
@@ -1389,7 +1388,7 @@ elif page == "WEKA Analysis":
         st.markdown("### Algorithm Selection")
         algorithm = st.selectbox(
             "Choose Classifier",
-            ["OneR", "Naive Bayes", "Decision Tree (J48)", "Random Forest", "SVM"]
+            ["Naive Bayes", "Decision Tree (J48)", "Random Forest", "SVM"]
         )
 
         if st.button("Run Classification", key="run_classification"):
@@ -1398,7 +1397,6 @@ elif page == "WEKA Analysis":
                 from sklearn.ensemble import RandomForestClassifier
                 from sklearn.naive_bayes import GaussianNB
                 from sklearn.svm import SVC
-                from mlxtend.classifier import OneRClassifier
                 from sklearn.model_selection import train_test_split, cross_val_score
                 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
@@ -1409,9 +1407,7 @@ elif page == "WEKA Analysis":
                 )
 
                 # 모델 선택
-                if algorithm == "OneR":
-                    model = OneRClassifier()
-                elif algorithm == "Naive Bayes":
+                if algorithm == "Naive Bayes":
                     model = GaussianNB()
                 elif algorithm == "Decision Tree (J48)":
                     model = DecisionTreeClassifier(max_depth=10, random_state=42)

@@ -197,13 +197,7 @@ def compare_models(X_train, X_test, y_train, y_test):
     print("🔬 여러 모델 비교")
     print("=" * 70)
 
-    # OneR을 위한 레이블 인코딩
-    le = LabelEncoder()
-    y_train_encoded = le.fit_transform(y_train)
-    y_test_encoded = le.transform(y_test)
-
     models = {
-        'OneR': OneRClassifier(),
         'Naive Bayes': GaussianNB(),
         'Decision Tree (J48)': DecisionTreeClassifier(max_depth=10, random_state=42),
         'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
@@ -213,15 +207,8 @@ def compare_models(X_train, X_test, y_train, y_test):
     results = {}
 
     for name, model in models.items():
-        # OneR은 인코딩된 레이블 사용
-        if name == 'OneR':
-            model.fit(X_train, y_train_encoded)
-            y_pred_encoded = model.predict(X_test)
-            y_pred = le.inverse_transform(y_pred_encoded)
-        else:
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
-
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
         accuracy = accuracy_score(y_test, y_pred)
         results[name] = accuracy
         print(f"\n{name}: {accuracy:.2%}")
