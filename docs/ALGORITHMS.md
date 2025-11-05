@@ -6,7 +6,7 @@ This document provides detailed explanations of all machine learning algorithms 
 
 ## Table of Contents
 
-1. [OneR (One Rule)](#1-oner-one-rule)
+1. [OneR (One Rule)](#1-oner-one-rule) - *제외됨*
 2. [Naive Bayes](#2-naive-bayes)
 3. [Decision Tree (J48/C4.5)](#3-decision-tree-j48c45)
 4. [Random Forest](#4-random-forest)
@@ -17,8 +17,15 @@ This document provides detailed explanations of all machine learning algorithms 
 
 ## 1. OneR (One Rule)
 
+> **참고**: OneR 알고리즘은 초기 개발 단계에서 구현되었으나, 단일 속성 기반 분류의 한계와 성능 이슈로 인해 **최종 버전에서는 제외**되었습니다. 본 문서는 프로젝트 진행 과정을 기록하기 위해 유지됩니다.
+
 ### 개요
 OneR은 **가장 단순한 규칙 기반 분류기**로, 단 하나의 속성(attribute)만을 사용하여 분류를 수행합니다. WEKA에서 제공하는 베이스라인 알고리즘으로, 복잡한 모델과의 성능 비교를 위해 자주 사용됩니다.
+
+### 제외 사유
+- 예측 정확도가 매우 낮음 (약 14-15%)
+- 단일 속성만 사용하여 복잡한 패턴 포착 불가
+- 웹 대시보드 배포 시 안정성 이슈
 
 ### 동작 원리
 
@@ -454,32 +461,30 @@ C: 규제 파라미터 (기본 1.0)
 
 ## 6. Algorithm Comparison
 
-### 성능 비교표
+### 성능 비교표 (최종 버전 - 4개 알고리즘)
 
 | Algorithm | Accuracy | CV Score | Training Time | Interpretability | Complexity |
 |-----------|----------|----------|---------------|------------------|------------|
-| **OneR** | 50-55% | 52% ± 8% | 매우 빠름 (< 0.1s) | ⭐⭐⭐⭐⭐ | 매우 낮음 |
-| **Naive Bayes** | 68-72% | 70% ± 6% | 매우 빠름 (< 0.1s) | ⭐⭐⭐⭐ | 낮음 |
-| **Decision Tree** | 56-62% | 58% ± 8% | 빠름 (< 0.5s) | ⭐⭐⭐⭐⭐ | 중간 |
-| **Random Forest** | 68-73% | 70% ± 5% | 중간 (2-3s) | ⭐⭐ | 높음 |
-| **SVM** | **73-77%** | **75% ± 5%** | 느림 (5-10s) | ⭐ | 매우 높음 |
+| **Naive Bayes** | 64% | 63% ± 5% | 매우 빠름 (< 0.1s) | ⭐⭐⭐⭐ | 낮음 |
+| **Decision Tree (J48)** | 67% | 66% ± 4% | 빠름 (< 0.5s) | ⭐⭐⭐⭐⭐ | 중간 |
+| **Random Forest** | 67% | 67% ± 3% | 중간 (2-3s) | ⭐⭐ | 높음 |
+| **SVM** | **69%** | **68% ± 4%** | 느림 (5-10s) | ⭐ | 매우 높음 |
+
+> **참고**: OneR 알고리즘은 초기 구현되었으나 낮은 성능(약 14-15%)으로 인해 최종 버전에서 제외되었습니다.
 
 ### 알고리즘 선택 가이드
 
 **1. 해석 가능성이 중요한 경우:**
 - Decision Tree (J48)
-- OneR
 
 **2. 빠른 프로토타이핑:**
 - Naive Bayes
-- OneR
 
 **3. 최고 정확도가 필요한 경우:**
-- **SVM** (본 프로젝트 최종 선택)
-- Random Forest
+- **SVM** (본 프로젝트 최종 선택 - 69% 정확도)
 
 **4. 안정적인 성능:**
-- Random Forest
+- Random Forest (낮은 분산)
 - SVM
 
 ### 비트코인 예측에서의 특징

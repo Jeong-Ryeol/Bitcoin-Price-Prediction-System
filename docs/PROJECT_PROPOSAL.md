@@ -124,6 +124,8 @@
 
 **최종 선택 모델: SVM (Support Vector Machine)**
 
+**참고**: 초기에는 OneR 알고리즘도 구현하였으나, 단일 속성 기반 분류의 한계로 인해 최종 버전에서는 제외하였습니다.
+
 #### 3.3.2 군집화 알고리즘 (Clustering)
 - **K-Means**: 3-5개 클러스터
 - **PCA**: 2D 시각화
@@ -257,7 +259,7 @@ streamlit run app.py
 - 날짜 범위 선택 필터
 - 선택 기간 캔들스틱 차트
 - 통계 요약 (평균, 최대, 최소, 표준편차)
-- 최근 50개 인스턴스 데이터 테이블
+- Dataset Explorer와 역할 분리로 차트 분석에 집중
 
 #### 8) **WEKA Analysis**
 - **Classification**: 4개 알고리즘 선택 실행
@@ -375,6 +377,14 @@ streamlit run app.py
   - 암호화폐 시장의 높은 노이즈
   - 외부 요인 미반영 (뉴스, 규제 등)
 
+### 8.5 Streamlit Cloud 배포 에러
+- **문제**: deprecated 함수 및 import 누락
+- **해결**:
+  - `st.experimental_rerun()` 제거 (Model Performance 페이지)
+  - `import numpy as np` 추가 (Confusion Matrix 에러 해결)
+  - OneR 알고리즘 제거 (안정성 향상)
+  - 페이지별 역할 명확화 (Historical Analysis vs Dataset Explorer)
+
 ---
 
 ## 9. 프로젝트 성과
@@ -384,7 +394,8 @@ streamlit run app.py
 - **속성**: 9개 (8 features + 1 class, WEKA 요구사항: 4+ 충족)
 - **최고 정확도**: 69% (SVM)
 - **웹 페이지**: 9개 기능 페이지
-- **알고리즘**: 분류 4개, 군집화 1개, 연관규칙 1개
+- **분류 알고리즘**: 4개 (Naive Bayes, Decision Tree, Random Forest, SVM)
+- **기타 알고리즘**: 군집화 1개 (K-Means), 연관규칙 1개 (Apriori)
 
 ### 9.2 정성적 성과
 - 실제 금융 데이터 수집 및 분석 경험
