@@ -1657,16 +1657,17 @@ elif page == "About":
     st.markdown("""
     ## Project Overview
 
-    **비트코인 가격 예측 시스템**은 데이터마이닝 기법을 활용하여
-    암호화폐 시장의 가격 방향을 예측하는 머신러닝 프로젝트입니다.
+    비트코인 가격 예측 시스템은 데이터마이닝 기법을 활용하여 암호화폐 시장의 가격 방향을 예측하는 머신러닝 프로젝트입니다.
+    Upbit Public API를 통해 1년치 시간별 데이터를 수집하고, 기술적 지표를 분석하여 4가지 머신러닝 알고리즘으로 가격 방향을 예측합니다.
 
     ### Key Features
 
-    - Real-time data collection via Upbit Public API
-    - Technical indicator analysis (Moving Averages, RSI, Volume)
-    - Multiple ML algorithms (Random Forest, SVM, Naive Bayes, Decision Tree)
-    - Interactive web dashboard with live predictions
-    - Chart image pattern recognition
+    - Upbit Public API를 통한 실시간 데이터 수집 (API Key 불필요)
+    - 1년치 시간별 데이터 (8,412 인스턴스)
+    - 기술적 지표 분석 (이동평균, RSI, 거래량)
+    - 4개 머신러닝 알고리즘 비교 (Naive Bayes, Decision Tree, Random Forest, SVM)
+    - WEKA 스타일 데이터마이닝 분석
+    - 대화형 웹 대시보드
 
     ---
 
@@ -1674,12 +1675,12 @@ elif page == "About":
 
     | Category | Technologies |
     |----------|-------------|
-    | **Data Collection** | Upbit Public API (No API Key Required) |
+    | **Data Collection** | Upbit Public API |
     | **Data Processing** | pandas, numpy |
     | **Technical Analysis** | pandas-ta, mplfinance |
-    | **Machine Learning** | scikit-learn, WEKA |
+    | **Machine Learning** | scikit-learn |
+    | **Data Mining** | WEKA, mlxtend (Apriori) |
     | **Visualization** | Streamlit, Plotly |
-    | **Image Processing** | Pillow (PIL) |
     | **Deployment** | Streamlit Cloud, GitHub |
 
     ---
@@ -1723,21 +1724,36 @@ elif page == "About":
     ## How to Use This Website
 
     ### Dashboard
-    현재 Bitcoin 가격 정보, 실시간 차트, 기술적 지표 시각화 및 데이터 통계 요약
+    데이터셋 개요, 가격 차트, 클래스 분포 등 전체 통계를 한눈에 확인합니다.
+    8,412개 인스턴스의 기본 통계와 기술적 지표 분포를 제공합니다.
 
     ### Live Prediction
-    실시간 Bitcoin 데이터를 수집하고 ML 모델을 통해 1시간 후 가격 방향 예측
-    (Random Forest, SVM, Naive Bayes, Decision Tree 비교)
+    실시간 비트코인 데이터를 수집하여 학습된 SVM 모델로 1시간 후 가격 방향을 예측합니다.
+    예측 결과와 함께 클래스별 확률 분포를 확인할 수 있습니다.
+
+    ### Manual Prediction
+    사용자가 직접 입력한 데이터나 CSV 파일을 업로드하여 가격 방향을 예측합니다.
+    개별 입력과 일괄 예측 두 가지 방식을 지원합니다.
+
+    ### Dataset Explorer
+    전체 8,412개 인스턴스를 탐색하고 필터링할 수 있습니다.
+    속성 분포 분석과 시계열 그래프를 제공하며 CSV 다운로드가 가능합니다.
 
     ### Chart Image Analysis
-    Bitcoin 차트 스크린샷을 업로드하여 AI 기반 패턴 인식 및 트렌드 분석
+    비트코인 차트 스크린샷을 업로드하면 색상 분석을 통해 트렌드를 감지합니다.
+    간단한 패턴 인식과 예측을 제공하는 실험적 기능입니다.
 
     ### Historical Analysis
-    수집된 과거 데이터 탐색 및 시간대별 가격 변동, 기술적 지표 트렌드 확인
+    날짜 범위를 선택하여 해당 기간의 가격 차트와 통계를 확인합니다.
+    캔들스틱 차트와 주요 통계 지표를 제공합니다.
 
     ### WEKA Analysis
-    WEKA 소프트웨어 없이 웹에서 Classification, Clustering, Association Rules 결과 확인
-    ARFF 파일 다운로드 가능
+    WEKA 스타일의 데이터마이닝 분석을 웹에서 직접 수행합니다.
+    Classification, Decision Tree, Clustering, Association Rules를 지원하며 ARFF 파일 다운로드가 가능합니다.
+
+    ### Model Performance
+    4개 알고리즘의 성능을 비교하고 SVM을 최종 모델로 선택한 이유를 설명합니다.
+    알고리즘별 정확도와 교차 검증 결과를 시각화하여 제공합니다.
 
     ---
 
@@ -1793,17 +1809,20 @@ elif page == "About":
 
     ## Academic Purpose
 
-    이 프로젝트는 데이터마이닝 과목의 일환으로 진행되었으며, 다음과 같은 학습 목표를 달성합니다:
+    이 프로젝트는 데이터마이닝 과목의 과제로 진행되었습니다.
 
-    - 실제 데이터 수집 및 전처리 경험
-    - 시계열 데이터의 특성 이해
-    - WEKA를 활용한 데이터 마이닝 실습
-    - 다양한 머신러닝 알고리즘 비교 분석
-    - 웹 기반 대시보드 개발 및 배포
+    **학습 목표**
+    - 실제 금융 데이터 수집 및 전처리
+    - 시계열 데이터 분석 및 특성 추출
+    - WEKA 데이터마이닝 도구 활용
+    - 다양한 분류 알고리즘 비교 및 평가
+    - 웹 기반 대시보드 개발
 
     **Dataset Statistics**
-    - Total instances: 199 (WEKA requirement: 100+)
+    - Total instances: 8,412 (WEKA requirement: 100+)
     - Total attributes: 9 (8 features + 1 class, WEKA requirement: 4+)
+    - Data period: 2024-11-18 ~ 2025-11-04 (약 1년)
+    - Class distribution: STABLE 70.6%, UP 15.1%, DOWN 14.4%
 
     ---
 
