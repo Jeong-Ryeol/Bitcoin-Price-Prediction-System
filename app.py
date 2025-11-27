@@ -10,6 +10,10 @@ import plotly.express as px
 import os
 import sys
 from datetime import datetime
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
 
 # 프로젝트 경로 추가
 sys.path.append('src')
