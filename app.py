@@ -751,6 +751,43 @@ elif page == "Model Performance":
     더 자세한 Confusion Matrix와 클래스별 성능 분석은 WEKA Analysis 페이지에서 확인할 수 있습니다.
     """)
 
+    # Learning Curve 섹션
+    st.markdown("---")
+    st.markdown("### Learning Curve 분석")
+    st.markdown("데이터 크기에 따른 알고리즘별 성능 변화를 보여줍니다.")
+
+    # Learning Curve 이미지 표시
+    learning_curve_path = 'weka_results/learning_curve.png'
+    confidence_interval_path = 'weka_results/svm_confidence_interval.png'
+
+    import os
+    if os.path.exists(learning_curve_path):
+        st.image(learning_curve_path, caption='Learning Curve: 알고리즘별 성능 비교', use_container_width=True)
+
+        st.markdown("""
+        **Learning Curve 해석:**
+        - **X축**: 훈련 데이터 크기 (10% ~ 100%)
+        - **Y축**: 검증 정확도
+        - **색상 띠**: 표준편차 범위 (±1 std)
+        - **SVM(빨강)**이 전 구간에서 가장 높은 정확도를 유지합니다.
+        """)
+    else:
+        st.info("Learning Curve 이미지가 없습니다. `python src/learning_curve_plot.py`를 실행하세요.")
+
+    if os.path.exists(confidence_interval_path):
+        st.markdown("---")
+        st.markdown("### SVM 정확도 신뢰구간")
+        st.image(confidence_interval_path, caption='SVM 10-Fold Cross Validation 정확도 범위', use_container_width=True)
+
+        st.markdown("""
+        **신뢰구간 해석:**
+        - **평균 정확도**: 69.00%
+        - **표준편차**: ±2.57%
+        - **95% 신뢰구간**: 63.96% ~ 74.03%
+        - 파란 점: 각 Fold의 정확도
+        - 빨간 선: 평균 정확도
+        """)
+
 
 elif page == "Dataset Explorer":
     st.header("Dataset Explorer")
@@ -1536,12 +1573,12 @@ elif page == "WEKA Analysis":
                             # Lift 기준으로 정렬
                             rules_sorted = rules.sort_values('lift', ascending=False)
 
+                            # 규칙을 읽기 쉽게 변환 (먼저 전체에 적용)
+                            rules_sorted['antecedents_str'] = rules_sorted['antecedents'].apply(lambda x: ', '.join(list(x)))
+                            rules_sorted['consequents_str'] = rules_sorted['consequents'].apply(lambda x: ', '.join(list(x)))
+
                             # 상위 20개 규칙만 표시
                             rules_display = rules_sorted.head(20).copy()
-
-                            # 규칙을 읽기 쉽게 변환
-                            rules_display['antecedents_str'] = rules_display['antecedents'].apply(lambda x: ', '.join(list(x)))
-                            rules_display['consequents_str'] = rules_display['consequents'].apply(lambda x: ', '.join(list(x)))
 
                             # 테이블 표시
                             st.markdown("#### 상위 20개 연관규칙 (Lift 기준)")
