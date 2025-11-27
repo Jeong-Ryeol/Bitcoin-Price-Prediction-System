@@ -189,7 +189,7 @@ def test_tracker():
             accuracy=acc,
             cv_scores=cv_scores,
             confusion_matrix=cm,
-            data_size=199
+            data_size=8412
         )
 
     # 결과 출력

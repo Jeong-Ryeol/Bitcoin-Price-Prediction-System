@@ -5,7 +5,7 @@ WEKA-Style Classification Analysis Report
 
 Algorithm: Random Forest (100 trees)
 Data: Bitcoin Price Prediction Dataset
-Instances: 199
+Instances: 8412
 Attributes: 8 (price data + chart patterns)
 Class: price_direction {UP, DOWN, STABLE}
 

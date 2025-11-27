@@ -113,10 +113,10 @@
 | **STABLE** | -0.3% ~ +0.3% | 횡보 예상 |
 
 **클래스 분포 (실제)**:
-- STABLE: 146개 (73.4%)
-- UP: 26개 (13.1%)
-- DOWN: 27개 (13.6%)
-- **총 199개 인스턴스**
+- STABLE: 5,935개 (70.6%)
+- UP: 1,267개 (15.1%)
+- DOWN: 1,210개 (14.4%)
+- **총 8,412개 인스턴스**
 
 ### 3. 피처 데이터셋 (bitcoin_features.csv)
 
@@ -159,7 +159,7 @@
 
 **용도**: 분류 알고리즘 학습 (가격 방향 예측)
 **속성**: 8개 피처 + 1개 클래스
-**인스턴스**: 199개
+**인스턴스**: 8,412개
 
 ```arff
 @RELATION bitcoin_price_prediction
@@ -189,7 +189,7 @@
 
 **용도**: 군집화 (유사한 시장 상황 그룹화)
 **속성**: 5개 숫자형 피처만 (클래스 제외)
-**인스턴스**: 199개
+**인스턴스**: 8,412개
 
 ```arff
 @RELATION bitcoin_clustering
@@ -213,7 +213,7 @@
 
 **용도**: 연관규칙 학습 (패턴 간 연관성 발견)
 **속성**: 6개 범주형 변수 (가격대 + 차트 패턴)
-**인스턴스**: 199개
+**인스턴스**: 8,412개
 
 ```arff
 @RELATION bitcoin_association
@@ -341,12 +341,12 @@ else if ma_cross == "dead":
 
 ```python
 # 1. 데이터 준비
-X, y = predictor.prepare_data(df)  # 8개 피처, 199개 샘플
+X, y = predictor.prepare_data(df)  # 8개 피처, 8,412개 샘플
 
 # 2. 학습/테스트 분할
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
-)  # 학습: 159개, 테스트: 40개
+)  # 학습: 6,729개, 테스트: 1,683개
 
 # 3. 4개 알고리즘 비교
 models = {
@@ -511,7 +511,7 @@ Probability Distribution:
 ```
 === Run Information ===
 Scheme: SVM
-Instances: 199
+Instances: 8412
 Attributes: 8
 
 === Stratified Cross-Validation ===
@@ -935,7 +935,7 @@ streamlit run app.py
 
 ## 향후 개선 사항
 
-- [ ] 더 많은 데이터 수집 (500시간 이상)
+- [x] 더 많은 데이터 수집 (8,412개 완료)
 - [ ] 딥러닝 모델 추가 (LSTM)
 - [ ] 실시간 알림 기능
 - [ ] 백테스팅 시스템

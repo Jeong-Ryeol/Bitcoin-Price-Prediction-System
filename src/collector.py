@@ -268,8 +268,20 @@ def main():
     """테스트 실행"""
     collector = BitcoinDataCollector()
 
-    # 과거 200시간 데이터 수집
-    df = collector.collect_historical_data(hours=200)
+    # 1년치 데이터 사용 (기존 파일이 있으면 로드, 없으면 수집)
+    yearly_csv = 'data/raw/bitcoin_candles_yearly.csv'
+
+    if os.path.exists(yearly_csv):
+        print("=" * 70)
+        print("📊 기존 1년치 데이터 로드")
+        print("=" * 70)
+        df = pd.read_csv(yearly_csv)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        print(f"\n✅ {len(df)}개 캔들 로드 완료")
+        print(f"   기간: {df['timestamp'].min()} ~ {df['timestamp'].max()}")
+    else:
+        # 1년치 데이터 수집
+        df = collector.collect_yearly_data(days=365)
 
     if df is not None:
         # 1시간 후 가격 방향 라벨 추가
