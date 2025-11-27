@@ -839,9 +839,9 @@ elif page == "Model Performance":
                 title='Learning Curve: 알고리즘별 성능 비교',
                 xaxis_title='훈련 데이터 크기',
                 yaxis_title='정확도 (%)',
-                yaxis=dict(range=[50, 100]),
-                height=500,
-                legend=dict(x=0.7, y=0.1)
+                yaxis=dict(range=[40, 100]),
+                height=700,
+                legend=dict(x=0.75, y=0.95)
             )
 
             st.plotly_chart(fig, use_container_width=True)
