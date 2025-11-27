@@ -760,8 +760,13 @@ elif page == "Model Performance":
     st.markdown("### Learning Curve 분석")
     st.markdown("데이터 크기에 따른 알고리즘별 성능 변화를 보여줍니다.")
 
+    # session_state 초기화
+    if 'learning_curve_fig' not in st.session_state:
+        st.session_state.learning_curve_fig = None
+        st.session_state.learning_curve_summary = None
+
     if st.button("Learning Curve 생성", type="primary"):
-        with st.spinner("Learning Curve 계산 중... (약 1-2분 소요)"):
+        with st.spinner("Learning Curve 계산 중... (약 2-3분 소요)"):
             from sklearn.model_selection import learning_curve
             import plotly.graph_objects as go
 
@@ -845,13 +850,19 @@ elif page == "Model Performance":
                 legend=dict(x=0.75, y=0.95)
             )
 
-            st.plotly_chart(fig, use_container_width=True)
-
-            # 결과 요약 테이블
-            st.markdown("#### 최종 성능 (100% 데이터 사용)")
-            st.dataframe(pd.DataFrame(results_summary), use_container_width=True)
+            # session_state에 저장
+            st.session_state.learning_curve_fig = fig
+            st.session_state.learning_curve_summary = results_summary
 
         st.success("Learning Curve 생성 완료")
+
+    # 저장된 그래프 표시
+    if st.session_state.learning_curve_fig is not None:
+        st.plotly_chart(st.session_state.learning_curve_fig, use_container_width=True)
+
+        # 결과 요약 테이블
+        st.markdown("#### 최종 성능 (100% 데이터 사용)")
+        st.dataframe(pd.DataFrame(st.session_state.learning_curve_summary), use_container_width=True)
 
     st.markdown("""
     **Learning Curve 해석:**
@@ -895,6 +906,11 @@ elif page == "Model Performance":
     # SVM 신뢰구간 섹션
     st.markdown("---")
     st.markdown("### SVM 정확도 신뢰구간")
+
+    # session_state 초기화
+    if 'svm_ci_fig' not in st.session_state:
+        st.session_state.svm_ci_fig = None
+        st.session_state.svm_ci_stats = None
 
     if st.button("SVM 신뢰구간 계산"):
         with st.spinner("10-Fold Cross Validation 계산 중..."):
@@ -941,18 +957,29 @@ elif page == "Model Performance":
                 height=400
             )
 
-            st.plotly_chart(fig, use_container_width=True)
-
-            # 통계 요약
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("평균 정확도", f"{mean_score*100:.2f}%")
-            with col2:
-                st.metric("표준편차", f"±{std_score*100:.2f}%")
-            with col3:
-                st.metric("95% 신뢰구간", f"{(mean_score-1.96*std_score)*100:.1f}% ~ {(mean_score+1.96*std_score)*100:.1f}%")
+            # session_state에 저장
+            st.session_state.svm_ci_fig = fig
+            st.session_state.svm_ci_stats = {
+                'mean': mean_score,
+                'std': std_score
+            }
 
         st.success("계산 완료")
+
+    # 저장된 그래프 표시
+    if st.session_state.svm_ci_fig is not None:
+        st.plotly_chart(st.session_state.svm_ci_fig, use_container_width=True)
+
+        # 통계 요약
+        mean_score = st.session_state.svm_ci_stats['mean']
+        std_score = st.session_state.svm_ci_stats['std']
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("평균 정확도", f"{mean_score*100:.2f}%")
+        with col2:
+            st.metric("표준편차", f"±{std_score*100:.2f}%")
+        with col3:
+            st.metric("95% 신뢰구간", f"{(mean_score-1.96*std_score)*100:.1f}% ~ {(mean_score+1.96*std_score)*100:.1f}%")
 
     st.markdown("""
     **신뢰구간 해석:**
