@@ -840,7 +840,8 @@ elif page == "Model Performance":
                 xaxis_title='훈련 데이터 크기',
                 yaxis_title='정확도 (%)',
                 yaxis=dict(range=[40, 100]),
-                height=700,
+                height=600,
+                margin=dict(l=50, r=50, t=50, b=80),
                 legend=dict(x=0.75, y=0.95)
             )
 
