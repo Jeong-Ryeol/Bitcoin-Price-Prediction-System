@@ -795,7 +795,7 @@ elif page == "Model Performance":
                 train_sizes_abs, train_scores, test_scores = learning_curve(
                     model, X, y,
                     train_sizes=train_sizes,
-                    cv=5,
+                    cv=10,
                     scoring='accuracy',
                     n_jobs=-1,
                     random_state=42
@@ -871,16 +871,16 @@ elif page == "Model Performance":
         - UP: 15.1% (소수)
         - DOWN: 14.4% (소수)
 
-        **10% 데이터(841개)로 5-Fold CV를 하면:**
+        **10% 데이터(841개)로 10-Fold CV를 하면:**
 
         | 클래스 | 전체 비율 | 각 Fold 테스트 샘플 |
         |--------|----------|-------------------|
-        | STABLE | 70.6% | 약 118개 (충분) |
-        | UP | 15.1% | 약 25개 (적음) |
-        | DOWN | 14.4% | 약 24개 (적음) |
+        | STABLE | 70.6% | 약 59개 (충분) |
+        | UP | 15.1% | 약 13개 (적음) |
+        | DOWN | 14.4% | 약 12개 (적음) |
 
         **문제점:**
-        - UP/DOWN 샘플이 각 Fold에 20~25개밖에 없음
+        - UP/DOWN 샘플이 각 Fold에 12~13개밖에 없음
         - 이렇게 적으면 Fold마다 결과가 크게 달라짐
         - 따라서 표준편차(색상 띠)가 넓어짐
 
