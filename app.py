@@ -756,37 +756,206 @@ elif page == "Model Performance":
     st.markdown("### Learning Curve 분석")
     st.markdown("데이터 크기에 따른 알고리즘별 성능 변화를 보여줍니다.")
 
-    # Learning Curve 이미지 표시
-    learning_curve_path = 'weka_results/learning_curve.png'
-    confidence_interval_path = 'weka_results/svm_confidence_interval.png'
+    if st.button("Learning Curve 생성", type="primary"):
+        with st.spinner("Learning Curve 계산 중... (약 1-2분 소요)"):
+            from sklearn.model_selection import learning_curve
+            import plotly.graph_objects as go
 
-    import os
-    if os.path.exists(learning_curve_path):
-        st.image(learning_curve_path, caption='Learning Curve: 알고리즘별 성능 비교', use_container_width=True)
+            # 데이터 준비
+            predictor = BitcoinPredictor()
+            X, y = predictor.prepare_data(df)
 
+            # 알고리즘 정의
+            models = {
+                'SVM (RBF)': SVC(kernel='rbf', random_state=42),
+                'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
+                'Naive Bayes': GaussianNB(),
+                'Decision Tree': DecisionTreeClassifier(max_depth=10, random_state=42)
+            }
+
+            colors = {
+                'SVM (RBF)': 'red',
+                'Random Forest': 'green',
+                'Naive Bayes': 'blue',
+                'Decision Tree': 'orange'
+            }
+
+            train_sizes = np.linspace(0.1, 1.0, 10)
+
+            # Plotly 그래프 생성
+            fig = go.Figure()
+
+            results_summary = []
+
+            for name, model in models.items():
+                train_sizes_abs, train_scores, test_scores = learning_curve(
+                    model, X, y,
+                    train_sizes=train_sizes,
+                    cv=5,
+                    scoring='accuracy',
+                    n_jobs=-1,
+                    random_state=42
+                )
+
+                test_mean = test_scores.mean(axis=1)
+                test_std = test_scores.std(axis=1)
+
+                # 퍼센트 레이블 (10%, 20%, ...)
+                pct_labels = [f'{int((i+1)*10)}%' for i in range(len(train_sizes_abs))]
+
+                # 라인 추가
+                fig.add_trace(go.Scatter(
+                    x=pct_labels,
+                    y=test_mean * 100,
+                    mode='lines+markers',
+                    name=name,
+                    line=dict(color=colors[name], width=3 if name == 'SVM (RBF)' else 2),
+                    marker=dict(size=10 if name == 'SVM (RBF)' else 6)
+                ))
+
+                # 표준편차 범위 (fill)
+                fig.add_trace(go.Scatter(
+                    x=pct_labels + pct_labels[::-1],
+                    y=list((test_mean + test_std) * 100) + list((test_mean - test_std) * 100)[::-1],
+                    fill='toself',
+                    fillcolor=colors[name],
+                    opacity=0.15,
+                    line=dict(color='rgba(255,255,255,0)'),
+                    showlegend=False,
+                    name=f'{name} std'
+                ))
+
+                results_summary.append({
+                    'Algorithm': name,
+                    'Final Accuracy': f'{test_mean[-1]*100:.2f}%',
+                    'Std': f'±{test_std[-1]*100:.2f}%'
+                })
+
+            fig.update_layout(
+                title='Learning Curve: 알고리즘별 성능 비교',
+                xaxis_title='훈련 데이터 크기',
+                yaxis_title='정확도 (%)',
+                yaxis=dict(range=[50, 100]),
+                height=500,
+                legend=dict(x=0.7, y=0.1)
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+            # 결과 요약 테이블
+            st.markdown("#### 최종 성능 (100% 데이터 사용)")
+            st.dataframe(pd.DataFrame(results_summary), use_container_width=True)
+
+        st.success("Learning Curve 생성 완료")
+
+    st.markdown("""
+    **Learning Curve 해석:**
+    - **X축**: 훈련 데이터 크기 (10% ~ 100%)
+    - **Y축**: 검증 정확도
+    - **색상 띠**: 표준편차 범위 (±1 std)
+    - **SVM(빨강)**이 전 구간에서 가장 높은 정확도를 유지합니다.
+    """)
+
+    # 초반 불안정성 설명
+    with st.expander("왜 초반(10~30%)에서 색상 띠가 넓을까요?", expanded=False):
         st.markdown("""
-        **Learning Curve 해석:**
-        - **X축**: 훈련 데이터 크기 (10% ~ 100%)
-        - **Y축**: 검증 정확도
-        - **색상 띠**: 표준편차 범위 (±1 std)
-        - **SVM(빨강)**이 전 구간에서 가장 높은 정확도를 유지합니다.
-        """)
-    else:
-        st.info("Learning Curve 이미지가 없습니다. `python src/learning_curve_plot.py`를 실행하세요.")
+        #### 클래스 불균형 + 적은 데이터의 문제
 
-    if os.path.exists(confidence_interval_path):
-        st.markdown("---")
-        st.markdown("### SVM 정확도 신뢰구간")
-        st.image(confidence_interval_path, caption='SVM 10-Fold Cross Validation 정확도 범위', use_container_width=True)
+        **우리 데이터의 클래스 분포:**
+        - STABLE: 70.6% (다수)
+        - UP: 15.1% (소수)
+        - DOWN: 14.4% (소수)
 
-        st.markdown("""
-        **신뢰구간 해석:**
-        - **평균 정확도**: 69.00%
-        - **표준편차**: ±2.57%
-        - **95% 신뢰구간**: 63.96% ~ 74.03%
-        - 파란 점: 각 Fold의 정확도
-        - 빨간 선: 평균 정확도
+        **10% 데이터(841개)로 5-Fold CV를 하면:**
+
+        | 클래스 | 전체 비율 | 각 Fold 테스트 샘플 |
+        |--------|----------|-------------------|
+        | STABLE | 70.6% | 약 118개 (충분) |
+        | UP | 15.1% | 약 25개 (적음) |
+        | DOWN | 14.4% | 약 24개 (적음) |
+
+        **문제점:**
+        - UP/DOWN 샘플이 각 Fold에 20~25개밖에 없음
+        - 이렇게 적으면 Fold마다 결과가 크게 달라짐
+        - 따라서 표준편차(색상 띠)가 넓어짐
+
+        **데이터가 많아지면 (100%):**
+        - 각 Fold에 UP/DOWN도 200개 이상
+        - 결과가 안정적이 되어 색상 띠가 좁아짐
+
+        **결론**: 데이터가 적을 때는 소수 클래스 샘플이 부족해서 결과가 불안정합니다.
+        이것이 Learning Curve 초반에 변동이 큰 이유입니다.
         """)
+
+    # SVM 신뢰구간 섹션
+    st.markdown("---")
+    st.markdown("### SVM 정확도 신뢰구간")
+
+    if st.button("SVM 신뢰구간 계산"):
+        with st.spinner("10-Fold Cross Validation 계산 중..."):
+            from sklearn.model_selection import cross_val_score
+
+            predictor = BitcoinPredictor()
+            X, y = predictor.prepare_data(df)
+
+            svm = SVC(kernel='rbf', random_state=42)
+            cv_scores = cross_val_score(svm, X, y, cv=10, scoring='accuracy')
+
+            mean_score = cv_scores.mean()
+            std_score = cv_scores.std()
+
+            # Plotly 그래프
+            fig = go.Figure()
+
+            # 각 Fold 점수
+            fig.add_trace(go.Scatter(
+                x=list(range(1, 11)),
+                y=cv_scores * 100,
+                mode='markers',
+                name='Fold Scores',
+                marker=dict(size=12, color='blue')
+            ))
+
+            # 평균선
+            fig.add_hline(y=mean_score * 100, line_dash="solid", line_color="red",
+                         annotation_text=f"평균: {mean_score*100:.2f}%")
+
+            # 표준편차 범위
+            fig.add_hrect(y0=(mean_score - std_score) * 100, y1=(mean_score + std_score) * 100,
+                         fillcolor="red", opacity=0.2, line_width=0)
+
+            # 95% 신뢰구간
+            fig.add_hrect(y0=(mean_score - 1.96*std_score) * 100, y1=(mean_score + 1.96*std_score) * 100,
+                         fillcolor="blue", opacity=0.1, line_width=0)
+
+            fig.update_layout(
+                title='SVM 10-Fold Cross Validation 정확도 범위',
+                xaxis_title='Fold Number',
+                yaxis_title='정확도 (%)',
+                yaxis=dict(range=[60, 100]),
+                height=400
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+            # 통계 요약
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("평균 정확도", f"{mean_score*100:.2f}%")
+            with col2:
+                st.metric("표준편차", f"±{std_score*100:.2f}%")
+            with col3:
+                st.metric("95% 신뢰구간", f"{(mean_score-1.96*std_score)*100:.1f}% ~ {(mean_score+1.96*std_score)*100:.1f}%")
+
+        st.success("계산 완료")
+
+    st.markdown("""
+    **신뢰구간 해석:**
+    - 파란 점: 각 Fold의 정확도
+    - 빨간 선: 평균 정확도
+    - 빨간 영역: ±1 표준편차
+    - 파란 영역: 95% 신뢰구간
+    """)
 
 
 elif page == "Dataset Explorer":
