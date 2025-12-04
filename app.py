@@ -1707,14 +1707,14 @@ elif page == "WEKA Analysis":
         st.subheader("ANOVA Analysis (알고리즘 성능 비교)")
 
         st.markdown("""
-        **One-Way ANOVA (일원분산분석) - 알고리즘 간 성능 비교**
+        **Analysis of Variance (ANOVA) - 알고리즘 간 성능 비교**
 
         Learning Curve에서 50% 이상 훈련 데이터 중 최적의 지점을 선택하고,
-        해당 지점에서 각 알고리즘의 10-Fold CV 정확도를 수집하여 알고리즘 간 성능 차이가 통계적으로 유의미한지 검정합니다.
+        해당 지점에서 각 알고리즘의 10-Fold CV 정확도를 수집하여 알고리즘 간 평균 차이가 우연에 의한 것인지, 실제 차이가 있는지 검정합니다.
 
-        - **귀무가설 (H₀)**: 모든 알고리즘의 평균 정확도가 동일하다
-        - **대립가설 (H₁)**: 적어도 하나의 알고리즘 평균 정확도가 다르다
-        - **유의수준**: 0.05 (p-value < 0.05이면 귀무가설 기각)
+        - **k**: 알고리즘 수 (methods)
+        - **n**: 시행 횟수 (trials, 10-Fold CV)
+        - **F 분포**: 자유도 k-1, k(n-1)
         """)
 
         if st.button("Run ANOVA Analysis", type="primary", key="run_anova"):
@@ -1890,37 +1890,38 @@ elif page == "WEKA Analysis":
                 # F 임계값 (유의수준 0.05)
                 f_critical = stats.f.ppf(0.95, df_between, df_within)
 
-                col1, col2, col3 = st.columns(3)
+                col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("F-statistic", f"{f_stat:.4f}")
+                    st.metric("f (계산값)", f"{f_stat:.4f}")
                 with col2:
-                    st.metric("p-value", f"{p_value:.6f}")
-                with col3:
-                    st.metric("F-critical (α=0.05)", f"{f_critical:.4f}")
+                    st.metric(f"f_{{0.05, {df_between}, {df_within}}} (임계값)", f"{f_critical:.4f}")
 
                 st.markdown(f"""
-                **자유도:**
-                - df₁ (그룹 간) = k - 1 = {k} - 1 = **{df_between}**
-                - df₂ (그룹 내) = k(n-1) = {k}({n}-1) = **{df_within}**
+                **F 분포 자유도:**
+                - k = {k} (알고리즘 수)
+                - n = {n} (시행 횟수, 10-Fold)
+                - 자유도: k-1 = **{df_between}**, k(n-1) = **{df_within}**
                 """)
 
                 # 결론
                 st.markdown("---")
-                st.markdown("### 결론")
+                st.markdown("### Conclusion")
 
-                if p_value < 0.05:
+                if f_stat > f_critical:
                     st.success(f"""
-                    **귀무가설 기각** (p-value = {p_value:.6f} < 0.05)
+                    **f = {f_stat:.4f}** exceeds **f_{{0.05, {df_between}, {df_within}}} = {f_critical:.4f}**
 
-                    알고리즘 간 평균 정확도에 **통계적으로 유의미한 차이**가 있습니다.
+                    모든 알고리즘의 평균이 동일하다는 가정을 **기각(reject)** 합니다.
 
-                    F-statistic ({f_stat:.4f}) > F-critical ({f_critical:.4f}) 이므로 귀무가설을 기각합니다.
+                    → 알고리즘 간 성능에 **실제 차이가 있음**
                     """)
                 else:
                     st.warning(f"""
-                    **귀무가설 채택** (p-value = {p_value:.6f} >= 0.05)
+                    **f = {f_stat:.4f}** does not exceed **f_{{0.05, {df_between}, {df_within}}} = {f_critical:.4f}**
 
-                    알고리즘 간 평균 정확도에 **통계적으로 유의미한 차이가 없습니다**.
+                    모든 알고리즘의 평균이 동일하다는 가정을 기각할 수 없습니다.
+
+                    → 알고리즘 간 차이가 우연에 의한 것일 수 있음
                     """)
 
                 # 알고리즘별 성능 순위
@@ -1984,23 +1985,21 @@ elif page == "WEKA Analysis":
 
             with st.expander("ANOVA 분석 과정 상세 설명"):
                 st.markdown("""
-                **1. Learning Curve 분석**
-                - 훈련 데이터 크기를 50%, 60%, 70%, 80%, 90%, 100%로 변화
-                - 각 크기에서 4개 알고리즘의 10-Fold CV 정확도 계산
-                - 모든 알고리즘의 평균 정확도가 가장 높은 지점 선택
+                **Analysis of Variance (ANOVA)**
 
-                **2. 10-Fold CV 정확도 수집**
-                - 최적 훈련 크기에서 각 알고리즘별로 10-Fold CV 수행
-                - 각 알고리즘당 10개의 정확도 값 수집
+                여러 샘플 평균 간의 차이가 우연에 의한 것인지, 실제로 차이가 있는지 검정
 
-                **3. One-Way ANOVA 수행**
-                - 4개 그룹(알고리즘) × 10개 샘플(Fold)
-                - F-statistic = (그룹 간 분산) / (그룹 내 분산)
-                - 자유도: df₁ = k-1 = 3, df₂ = k(n-1) = 36
+                **1. 데이터 수집**
+                - k개 알고리즘 (methods)
+                - 각 알고리즘당 n번의 시행 (10-Fold CV)
 
-                **4. 결론 도출**
-                - p-value < 0.05: 알고리즘 간 유의미한 차이 있음
-                - p-value >= 0.05: 알고리즘 간 유의미한 차이 없음
+                **2. F 분포**
+                - 자유도: k-1, k(n-1)
+                - 예: k=4, n=10 → 자유도 3, 36
+
+                **3. 결론**
+                - f 값이 f_{α,k-1,k(n-1)} 을 초과하면, 모든 그룹의 평균이 동일하다는 가정을 기각
+                - α = 0.05 (level of significance)
                 """)
 
 
