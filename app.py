@@ -765,13 +765,39 @@ elif page == "Model Performance":
     if os.path.exists(learning_curve_path):
         st.image(learning_curve_path, caption='Learning Curve: 알고리즘별 성능 비교', use_container_width=True)
 
-        st.markdown("""
-        **Learning Curve 해석:**
-        - **X축**: 훈련 데이터 크기 (10% ~ 100%)
-        - **Y축**: 검증 정확도
-        - **색상 띠**: 표준편차 범위 (±1 std)
-        - **SVM(빨강)**이 전 구간에서 가장 높은 정확도를 유지합니다.
-        """)
+        with st.expander("Learning Curve는 어떻게 그린 그래프인가요?"):
+            st.markdown("""
+            ### Learning Curve 생성 방법
+
+            **X축: 훈련 데이터 크기**
+            - 전체 데이터의 일부만 사용하여 학습 (7%, 15%, 23%, ... 79%)
+            - 예: 7% = 672개, 79% = 6,729개 인스턴스
+
+            **Y축: 검증 정확도 (10-Fold Cross Validation)**
+
+            각 훈련 크기에서 다음 과정을 수행합니다:
+
+            ```
+            예시: Training Size 7% (672개)
+            ┌─────────────────────────────────────┐
+            │ 1. 672개 데이터를 10등분 (Fold)      │
+            │ 2. 9개 Fold(605개)로 학습            │
+            │ 3. 1개 Fold(67개)로 검증             │
+            │ 4. 10번 반복 (매번 다른 Fold로 검증) │
+            │ 5. 10개 정확도의 평균 = 그래프의 점  │
+            │ 6. 표준편차 = 색상 띠 (음영)         │
+            └─────────────────────────────────────┘
+            ```
+
+            **그래프 해석:**
+            - **점**: 각 훈련 크기에서의 평균 검증 정확도
+            - **색상 띠**: 표준편차 범위 (±1 std) - 성능의 안정성
+            - **SVM(빨강)**이 전 구간에서 가장 높은 정확도를 유지
+
+            **목적:**
+            - 데이터가 많아질수록 성능이 어떻게 변하는지 확인
+            - 과적합(Overfitting) / 과소적합(Underfitting) 진단
+            """)
     else:
         st.info("Learning Curve 이미지가 없습니다. `python src/learning_curve_plot.py`를 실행하세요.")
 
