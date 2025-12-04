@@ -10,10 +10,7 @@ import plotly.express as px
 import os
 import sys
 from datetime import datetime
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
+from scipy import stats
 
 # 프로젝트 경로 추가
 sys.path.append('src')
@@ -760,234 +757,37 @@ elif page == "Model Performance":
     st.markdown("### Learning Curve 분석")
     st.markdown("데이터 크기에 따른 알고리즘별 성능 변화를 보여줍니다.")
 
-    # session_state 초기화
-    if 'learning_curve_fig' not in st.session_state:
-        st.session_state.learning_curve_fig = None
-        st.session_state.learning_curve_summary = None
+    # Learning Curve 이미지 표시
+    learning_curve_path = 'weka_results/learning_curve.png'
+    confidence_interval_path = 'weka_results/svm_confidence_interval.png'
 
-    if st.button("Learning Curve 생성", type="primary"):
-        with st.spinner("Learning Curve 계산 중... (약 2-3분 소요)"):
-            from sklearn.model_selection import learning_curve
-            import plotly.graph_objects as go
+    import os
+    if os.path.exists(learning_curve_path):
+        st.image(learning_curve_path, caption='Learning Curve: 알고리즘별 성능 비교', use_container_width=True)
 
-            # 데이터 준비
-            predictor = BitcoinPredictor()
-            X, y = predictor.prepare_data(df)
-
-            # 알고리즘 정의
-            models = {
-                'SVM (RBF)': SVC(kernel='rbf', random_state=42),
-                'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
-                'Naive Bayes': GaussianNB(),
-                'Decision Tree': DecisionTreeClassifier(max_depth=10, random_state=42)
-            }
-
-            colors = {
-                'SVM (RBF)': 'red',
-                'Random Forest': 'green',
-                'Naive Bayes': 'blue',
-                'Decision Tree': 'orange'
-            }
-
-            train_sizes = np.linspace(0.1, 1.0, 10)
-
-            # Plotly 그래프 생성
-            fig = go.Figure()
-
-            results_summary = []
-
-            for name, model in models.items():
-                train_sizes_abs, train_scores, test_scores = learning_curve(
-                    model, X, y,
-                    train_sizes=train_sizes,
-                    cv=10,
-                    scoring='accuracy',
-                    n_jobs=-1,
-                    random_state=42
-                )
-
-                test_mean = test_scores.mean(axis=1)
-                test_std = test_scores.std(axis=1)
-
-                # 퍼센트 레이블 (10%, 20%, ...)
-                pct_labels = [f'{int((i+1)*10)}%' for i in range(len(train_sizes_abs))]
-
-                # 라인 추가
-                fig.add_trace(go.Scatter(
-                    x=pct_labels,
-                    y=test_mean * 100,
-                    mode='lines+markers',
-                    name=name,
-                    line=dict(color=colors[name], width=3 if name == 'SVM (RBF)' else 2),
-                    marker=dict(size=10 if name == 'SVM (RBF)' else 6)
-                ))
-
-                # 표준편차 범위 (fill)
-                fig.add_trace(go.Scatter(
-                    x=pct_labels + pct_labels[::-1],
-                    y=list((test_mean + test_std) * 100) + list((test_mean - test_std) * 100)[::-1],
-                    fill='toself',
-                    fillcolor=colors[name],
-                    opacity=0.15,
-                    line=dict(color='rgba(255,255,255,0)'),
-                    showlegend=False,
-                    name=f'{name} std'
-                ))
-
-                results_summary.append({
-                    'Algorithm': name,
-                    'Final Accuracy': f'{test_mean[-1]*100:.2f}%',
-                    'Std': f'±{test_std[-1]*100:.2f}%'
-                })
-
-            fig.update_layout(
-                title='Learning Curve: 알고리즘별 성능 비교',
-                xaxis_title='훈련 데이터 크기',
-                yaxis_title='정확도 (%)',
-                yaxis=dict(range=[20, 100]),
-                height=600,
-                margin=dict(l=50, r=50, t=50, b=80),
-                legend=dict(x=0.75, y=0.95)
-            )
-
-            # session_state에 저장
-            st.session_state.learning_curve_fig = fig
-            st.session_state.learning_curve_summary = results_summary
-
-        st.success("Learning Curve 생성 완료")
-
-    # 저장된 그래프 표시
-    if st.session_state.learning_curve_fig is not None:
-        st.plotly_chart(st.session_state.learning_curve_fig, use_container_width=True)
-
-        # 결과 요약 테이블
-        st.markdown("#### 최종 성능 (100% 데이터 사용)")
-        st.dataframe(pd.DataFrame(st.session_state.learning_curve_summary), use_container_width=True)
-
-    st.markdown("""
-    **Learning Curve 해석:**
-    - **X축**: 훈련 데이터 크기 (10% ~ 100%)
-    - **Y축**: 검증 정확도
-    - **색상 띠**: 표준편차 범위 (±1 std)
-    - **SVM(빨강)**이 전 구간에서 가장 높은 정확도를 유지합니다.
-    """)
-
-    # 초반 불안정성 설명
-    with st.expander("왜 초반(10~30%)에서 색상 띠가 넓을까요?", expanded=False):
         st.markdown("""
-        #### 클래스 불균형 + 적은 데이터의 문제
-
-        **우리 데이터의 클래스 분포:**
-        - STABLE: 70.6% (다수)
-        - UP: 15.1% (소수)
-        - DOWN: 14.4% (소수)
-
-        **10% 데이터(841개)로 10-Fold CV를 하면:**
-
-        | 클래스 | 전체 비율 | 각 Fold 테스트 샘플 |
-        |--------|----------|-------------------|
-        | STABLE | 70.6% | 약 59개 (충분) |
-        | UP | 15.1% | 약 13개 (적음) |
-        | DOWN | 14.4% | 약 12개 (적음) |
-
-        **문제점:**
-        - UP/DOWN 샘플이 각 Fold에 12~13개밖에 없음
-        - 이렇게 적으면 Fold마다 결과가 크게 달라짐
-        - 따라서 표준편차(색상 띠)가 넓어짐
-
-        **데이터가 많아지면 (100%):**
-        - 각 Fold에 UP/DOWN도 200개 이상
-        - 결과가 안정적이 되어 색상 띠가 좁아짐
-
-        **결론**: 데이터가 적을 때는 소수 클래스 샘플이 부족해서 결과가 불안정합니다.
-        이것이 Learning Curve 초반에 변동이 큰 이유입니다.
+        **Learning Curve 해석:**
+        - **X축**: 훈련 데이터 크기 (10% ~ 100%)
+        - **Y축**: 검증 정확도
+        - **색상 띠**: 표준편차 범위 (±1 std)
+        - **SVM(빨강)**이 전 구간에서 가장 높은 정확도를 유지합니다.
         """)
+    else:
+        st.info("Learning Curve 이미지가 없습니다. `python src/learning_curve_plot.py`를 실행하세요.")
 
-    # SVM 신뢰구간 섹션
-    st.markdown("---")
-    st.markdown("### SVM 정확도 신뢰구간")
+    if os.path.exists(confidence_interval_path):
+        st.markdown("---")
+        st.markdown("### SVM 정확도 신뢰구간")
+        st.image(confidence_interval_path, caption='SVM 10-Fold Cross Validation 정확도 범위', use_container_width=True)
 
-    # session_state 초기화
-    if 'svm_ci_fig' not in st.session_state:
-        st.session_state.svm_ci_fig = None
-        st.session_state.svm_ci_stats = None
-
-    if st.button("SVM 신뢰구간 계산"):
-        with st.spinner("10-Fold Cross Validation 계산 중..."):
-            from sklearn.model_selection import cross_val_score
-
-            predictor = BitcoinPredictor()
-            X, y = predictor.prepare_data(df)
-
-            svm = SVC(kernel='rbf', random_state=42)
-            cv_scores = cross_val_score(svm, X, y, cv=10, scoring='accuracy')
-
-            mean_score = cv_scores.mean()
-            std_score = cv_scores.std()
-
-            # Plotly 그래프
-            fig = go.Figure()
-
-            # 각 Fold 점수
-            fig.add_trace(go.Scatter(
-                x=list(range(1, 11)),
-                y=cv_scores * 100,
-                mode='markers',
-                name='Fold Scores',
-                marker=dict(size=12, color='blue')
-            ))
-
-            # 평균선
-            fig.add_hline(y=mean_score * 100, line_dash="solid", line_color="red",
-                         annotation_text=f"평균: {mean_score*100:.2f}%")
-
-            # 표준편차 범위
-            fig.add_hrect(y0=(mean_score - std_score) * 100, y1=(mean_score + std_score) * 100,
-                         fillcolor="red", opacity=0.2, line_width=0)
-
-            # 95% 신뢰구간
-            fig.add_hrect(y0=(mean_score - 1.96*std_score) * 100, y1=(mean_score + 1.96*std_score) * 100,
-                         fillcolor="blue", opacity=0.1, line_width=0)
-
-            fig.update_layout(
-                title='SVM 10-Fold Cross Validation 정확도 범위',
-                xaxis_title='Fold Number',
-                yaxis_title='정확도 (%)',
-                yaxis=dict(range=[60, 100]),
-                height=400
-            )
-
-            # session_state에 저장
-            st.session_state.svm_ci_fig = fig
-            st.session_state.svm_ci_stats = {
-                'mean': mean_score,
-                'std': std_score
-            }
-
-        st.success("계산 완료")
-
-    # 저장된 그래프 표시
-    if st.session_state.svm_ci_fig is not None:
-        st.plotly_chart(st.session_state.svm_ci_fig, use_container_width=True)
-
-        # 통계 요약
-        mean_score = st.session_state.svm_ci_stats['mean']
-        std_score = st.session_state.svm_ci_stats['std']
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("평균 정확도", f"{mean_score*100:.2f}%")
-        with col2:
-            st.metric("표준편차", f"±{std_score*100:.2f}%")
-        with col3:
-            st.metric("95% 신뢰구간", f"{(mean_score-1.96*std_score)*100:.1f}% ~ {(mean_score+1.96*std_score)*100:.1f}%")
-
-    st.markdown("""
-    **신뢰구간 해석:**
-    - 파란 점: 각 Fold의 정확도
-    - 빨간 선: 평균 정확도
-    - 빨간 영역: ±1 표준편차
-    - 파란 영역: 95% 신뢰구간
-    """)
+        st.markdown("""
+        **신뢰구간 해석:**
+        - **평균 정확도**: 69.00%
+        - **표준편차**: ±2.57%
+        - **95% 신뢰구간**: 63.96% ~ 74.03%
+        - 파란 점: 각 Fold의 정확도
+        - 빨간 선: 평균 정확도
+        """)
 
 
 elif page == "Dataset Explorer":
@@ -1474,11 +1274,12 @@ elif page == "WEKA Analysis":
         st.stop()
 
     # 탭 구성
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Classification",
         "Decision Tree",
         "Clustering",
-        "Association Rules"
+        "Association Rules",
+        "ANOVA"
     ])
 
     # ===== 분류 분석 =====
@@ -1875,6 +1676,190 @@ elif page == "WEKA Analysis":
         else:
             st.info("ARFF 파일을 먼저 생성하세요: `python3 src/arff_generator.py`")
 
+    # ===== ANOVA 분석 =====
+    with tab5:
+        st.subheader("ANOVA Analysis (분산분석)")
+
+        st.markdown("""
+        **One-Way ANOVA (일원분산분석)**
+
+        3개 클래스(UP, DOWN, STABLE)별 수치형 속성의 평균 차이가 통계적으로 유의미한지 검정합니다.
+
+        - **귀무가설 (H₀)**: 모든 그룹의 평균이 동일하다
+        - **대립가설 (H₁)**: 적어도 하나의 그룹 평균이 다르다
+        - **유의수준**: 0.05 (p-value < 0.05이면 귀무가설 기각)
+        """)
+
+        if st.button("Run ANOVA Analysis", type="primary", key="run_anova"):
+            with st.spinner("ANOVA 분석 중..."):
+                # 수치형 속성
+                numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+
+                # 클래스별 데이터 분리
+                groups = {
+                    'UP': df[df['price_direction'] == 'UP'],
+                    'DOWN': df[df['price_direction'] == 'DOWN'],
+                    'STABLE': df[df['price_direction'] == 'STABLE']
+                }
+
+                # ANOVA 결과 저장
+                anova_results = []
+
+                for col in numeric_cols:
+                    # 각 그룹의 데이터 추출
+                    group_up = groups['UP'][col].dropna().values
+                    group_down = groups['DOWN'][col].dropna().values
+                    group_stable = groups['STABLE'][col].dropna().values
+
+                    # One-Way ANOVA
+                    f_stat, p_value = stats.f_oneway(group_up, group_down, group_stable)
+
+                    # 그룹별 평균
+                    means = {
+                        'UP': group_up.mean(),
+                        'DOWN': group_down.mean(),
+                        'STABLE': group_stable.mean()
+                    }
+
+                    anova_results.append({
+                        'Attribute': col,
+                        'F-statistic': f_stat,
+                        'p-value': p_value,
+                        'Significant': 'Yes' if p_value < 0.05 else 'No',
+                        'UP Mean': means['UP'],
+                        'DOWN Mean': means['DOWN'],
+                        'STABLE Mean': means['STABLE']
+                    })
+
+                # 결과 표시
+                st.markdown("---")
+                st.markdown("### ANOVA 결과")
+
+                result_df = pd.DataFrame(anova_results)
+
+                # 테이블 표시
+                display_df = result_df.copy()
+                display_df['F-statistic'] = display_df['F-statistic'].apply(lambda x: f"{x:.4f}")
+                display_df['p-value'] = display_df['p-value'].apply(lambda x: f"{x:.6f}")
+                display_df['UP Mean'] = display_df['UP Mean'].apply(lambda x: f"{x:,.0f}")
+                display_df['DOWN Mean'] = display_df['DOWN Mean'].apply(lambda x: f"{x:,.0f}")
+                display_df['STABLE Mean'] = display_df['STABLE Mean'].apply(lambda x: f"{x:,.0f}")
+
+                st.dataframe(display_df, use_container_width=True)
+
+                # 유의미한 속성 수
+                significant_count = sum(1 for r in anova_results if r['p-value'] < 0.05)
+                st.info(f"5개 속성 중 {significant_count}개가 통계적으로 유의미한 차이를 보입니다 (p < 0.05)")
+
+                # session_state에 결과 저장
+                st.session_state['anova_results'] = anova_results
+
+        # 박스플롯 시각화 (결과가 있을 때만)
+        if 'anova_results' in st.session_state:
+            anova_results = st.session_state['anova_results']
+
+            st.markdown("---")
+            st.markdown("### 클래스별 분포 비교 (Box Plot)")
+
+            numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+
+            # 속성 선택
+            selected_attr = st.selectbox(
+                "시각화할 속성 선택",
+                numeric_cols,
+                key="anova_attr_select"
+            )
+
+            # 박스플롯 생성
+            fig_box = px.box(
+                df,
+                x='price_direction',
+                y=selected_attr,
+                color='price_direction',
+                color_discrete_map={'UP': 'red', 'DOWN': 'blue', 'STABLE': 'gray'},
+                title=f'{selected_attr} 분포 by Price Direction',
+                labels={
+                    'price_direction': 'Price Direction',
+                    selected_attr: selected_attr
+                }
+            )
+            fig_box.update_layout(height=500, showlegend=False)
+            st.plotly_chart(fig_box, use_container_width=True)
+
+            # 선택한 속성의 상세 통계
+            selected_result = next(r for r in anova_results if r['Attribute'] == selected_attr)
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric(
+                    "F-statistic",
+                    f"{selected_result['F-statistic']:.4f}"
+                )
+            with col2:
+                st.metric(
+                    "p-value",
+                    f"{selected_result['p-value']:.6f}"
+                )
+            with col3:
+                if selected_result['p-value'] < 0.05:
+                    st.success("유의미함 (p < 0.05)")
+                else:
+                    st.warning("유의미하지 않음 (p >= 0.05)")
+
+            # 전체 속성 박스플롯
+            st.markdown("---")
+            st.markdown("### 전체 속성 비교")
+
+            # 2행 3열 그리드로 박스플롯 표시
+            cols = st.columns(3)
+            for i, col_name in enumerate(numeric_cols):
+                with cols[i % 3]:
+                    fig = px.box(
+                        df,
+                        x='price_direction',
+                        y=col_name,
+                        color='price_direction',
+                        color_discrete_map={'UP': 'red', 'DOWN': 'blue', 'STABLE': 'gray'},
+                        title=f'{col_name}'
+                    )
+                    fig.update_layout(
+                        height=300,
+                        showlegend=False,
+                        xaxis_title='',
+                        yaxis_title=''
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # p-value 표시
+                    result = next(r for r in anova_results if r['Attribute'] == col_name)
+                    if result['p-value'] < 0.05:
+                        st.caption(f"p={result['p-value']:.4f} (유의미)")
+                    else:
+                        st.caption(f"p={result['p-value']:.4f}")
+
+            # ANOVA 해석
+            st.markdown("---")
+            st.markdown("### ANOVA 결과 해석")
+
+            st.markdown("""
+            **분석 결과 요약:**
+
+            ANOVA 분석은 세 그룹(UP, DOWN, STABLE) 간에 각 수치형 속성의 평균이
+            통계적으로 유의미하게 다른지를 검정합니다.
+
+            - **F-statistic**: 그룹 간 분산과 그룹 내 분산의 비율
+              - 값이 클수록 그룹 간 차이가 크다는 의미
+
+            - **p-value**: 귀무가설이 참일 때 관측된 결과가 나올 확률
+              - p < 0.05: 그룹 간 평균 차이가 통계적으로 유의미
+              - p >= 0.05: 그룹 간 평균 차이가 우연에 의한 것일 수 있음
+
+            **주의사항:**
+            - ANOVA는 어떤 그룹 간에 차이가 있는지는 알려주지 않음
+            - 사후 검정(Post-hoc test)이 필요할 수 있음
+            - 등분산성, 정규성 가정이 필요하나 표본이 충분히 크면 강건함
+            """)
+
 
 elif page == "About":
     st.header("About This Project")
@@ -1892,192 +1877,452 @@ elif page == "About":
 
     st.markdown("---")
 
-    st.markdown("""
-    ## Project Overview
+    # 발표용 탭 구성
+    about_tab1, about_tab2, about_tab3, about_tab4, about_tab5 = st.tabs([
+        "Project Overview",
+        "Data Structure",
+        "Features Guide",
+        "Data Mining Methods",
+        "Installation"
+    ])
 
-    비트코인 가격 예측 시스템은 데이터마이닝 기법을 활용하여 암호화폐 시장의 가격 방향을 예측하는 머신러닝 프로젝트입니다.
-    Upbit Public API를 통해 1년치 시간별 데이터를 수집하고, 기술적 지표를 분석하여 4가지 머신러닝 알고리즘으로 가격 방향을 예측합니다.
+    with about_tab1:
+        st.markdown("""
+        ## Project Overview
 
-    ### Key Features
+        비트코인 가격 예측 시스템은 **데이터마이닝 기법**을 활용하여 암호화폐 시장의 가격 방향을 예측하는 머신러닝 프로젝트입니다.
 
-    - Upbit Public API를 통한 실시간 데이터 수집 (API Key 불필요)
-    - 1년치 시간별 데이터 (8,412 인스턴스)
-    - 기술적 지표 분석 (이동평균, RSI, 거래량)
-    - 4개 머신러닝 알고리즘 비교 (Naive Bayes, Decision Tree, Random Forest, SVM)
-    - WEKA 스타일 데이터마이닝 분석
-    - 대화형 웹 대시보드
+        ### 프로젝트 목표
+        - Upbit Public API를 통해 **1년치 시간별 데이터**를 수집
+        - 기술적 지표를 분석하여 **4가지 머신러닝 알고리즘**으로 가격 방향 예측
+        - **WEKA 스타일** 데이터마이닝 분석을 웹에서 구현
 
-    ---
+        ---
 
-    ## Technology Stack
+        ### Dataset Statistics (현재)
+        """)
 
-    | Category | Technologies |
-    |----------|-------------|
-    | **Data Collection** | Upbit Public API |
-    | **Data Processing** | pandas, numpy |
-    | **Technical Analysis** | pandas-ta, mplfinance |
-    | **Machine Learning** | scikit-learn |
-    | **Data Mining** | WEKA, mlxtend (Apriori) |
-    | **Visualization** | Streamlit, Plotly |
-    | **Deployment** | Streamlit Cloud, GitHub |
+        # 데이터 통계 표시
+        if df is not None:
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Instances", f"{len(df):,}개")
+            with col2:
+                st.metric("Total Attributes", "9개 (8 features + 1 class)")
+            with col3:
+                st.metric("Data Period", f"{(df['timestamp'].max() - df['timestamp'].min()).days}일")
+            with col4:
+                st.metric("Data Source", "Upbit API")
 
-    ---
+            st.markdown(f"""
+            - **데이터 기간**: {df['timestamp'].min().strftime('%Y-%m-%d')} ~ {df['timestamp'].max().strftime('%Y-%m-%d')}
+            - **데이터 간격**: 1시간 (Hourly Candle)
+            - **WEKA 요구사항**: 100개 이상 인스턴스, 4개 이상 속성 -> **충족**
+            """)
 
-    ## Data Attributes
+        st.markdown("""
+        ---
 
-    ### Price Data (5 attributes)
+        ### Technology Stack
 
-    - **Open**: 시간대 시작 가격
-    - **High**: 시간대 최고 가격
-    - **Low**: 시간대 최저 가격
-    - **Close**: 시간대 종료 가격 (예측에 가장 중요)
-    - **Volume**: 거래량 (시장 활성도 지표)
+        | Category | Technologies |
+        |----------|-------------|
+        | **Data Collection** | Upbit Public API (RESTful) |
+        | **Data Processing** | pandas, numpy |
+        | **Technical Analysis** | pandas-ta, RSI, Moving Average |
+        | **Machine Learning** | scikit-learn (SVM, RF, DT, NB) |
+        | **Statistical Analysis** | scipy (ANOVA) |
+        | **Data Mining** | mlxtend (Apriori), K-Means |
+        | **Visualization** | Streamlit, Plotly |
 
-    ### Technical Indicators (3 attributes)
+        ---
 
-    **MA Cross (Moving Average Crossover)**
-    - Golden Cross: 단기 이동평균(5시간)이 장기 이동평균(20시간)을 상향 돌파
-    - Death Cross: 단기 이동평균이 장기 이동평균을 하향 돌파
-    - Neutral: 교차 없음
+        ### Class Distribution
+        """)
 
-    **RSI Signal (Relative Strength Index)**
-    - Overbought: RSI > 70 (과매수 상태)
-    - Oversold: RSI < 30 (과매도 상태)
-    - Neutral: 30 ≤ RSI ≤ 70
+        if df is not None:
+            class_counts = df['price_direction'].value_counts()
+            fig_class = px.pie(
+                values=class_counts.values,
+                names=class_counts.index,
+                title='Price Direction Class Distribution',
+                color=class_counts.index,
+                color_discrete_map={'UP': 'red', 'DOWN': 'blue', 'STABLE': 'gray'}
+            )
+            st.plotly_chart(fig_class, use_container_width=True)
 
-    **Volume Spike**
-    - High: 거래량이 평균의 1.5배 이상
-    - Low: 거래량이 평균의 0.5배 이하
-    - Normal: 평균 수준의 거래량
+    with about_tab2:
+        st.markdown("""
+        ## Data Structure: Instance = Attribute + Class
 
-    ### Target Class
+        데이터마이닝에서 **인스턴스(Instance)**는 **속성(Attribute)**과 **클래스(Class)**로 구성됩니다.
 
-    **Price Direction** (1시간 후 가격 변동)
-    - UP: 현재 대비 0.3% 이상 상승
-    - DOWN: 현재 대비 0.3% 이상 하락
-    - STABLE: -0.3% ~ +0.3% 범위 내 유지
+        ---
 
-    ---
+        ### Instance 구조
 
-    ## How to Use This Website
+        ```
+        Instance = [Attribute_1, Attribute_2, ..., Attribute_n, Class]
+        ```
 
-    ### Dashboard
-    데이터셋 개요, 가격 차트, 클래스 분포 등 전체 통계를 한눈에 확인합니다.
-    8,412개 인스턴스의 기본 통계와 기술적 지표 분포를 제공합니다.
+        **본 프로젝트의 구조:**
+        ```
+        Instance = [open, high, low, close, volume, ma_cross, rsi_signal, volume_spike, price_direction]
+                    |______________ Attributes (8개) ___________________|  |__ Class (1개) __|
+        ```
 
-    ### Live Prediction
-    실시간 비트코인 데이터를 수집하여 학습된 SVM 모델로 1시간 후 가격 방향을 예측합니다.
-    예측 결과와 함께 클래스별 확률 분포를 확인할 수 있습니다.
+        ---
 
-    ### Manual Prediction
-    사용자가 직접 입력한 데이터나 CSV 파일을 업로드하여 가격 방향을 예측합니다.
-    개별 입력과 일괄 예측 두 가지 방식을 지원합니다.
+        ### Attributes (속성) - 8개
 
-    ### Dataset Explorer
-    전체 8,412개 인스턴스를 탐색하고 필터링할 수 있습니다.
-    속성 분포 분석과 시계열 그래프를 제공하며 CSV 다운로드가 가능합니다.
+        #### 1. Numeric Attributes (수치형) - 5개
+        | Attribute | Description | Type | Example |
+        |-----------|-------------|------|---------|
+        | **open** | 시간봉 시작 가격 | Continuous | 126,097,000 원 |
+        | **high** | 시간봉 최고 가격 | Continuous | 126,500,000 원 |
+        | **low** | 시간봉 최저 가격 | Continuous | 125,900,000 원 |
+        | **close** | 시간봉 종료 가격 | Continuous | 126,472,000 원 |
+        | **volume** | 거래량 (BTC) | Continuous | 122.87 BTC |
 
-    ### Chart Image Analysis
-    비트코인 차트 스크린샷을 업로드하면 색상 분석을 통해 트렌드를 감지합니다.
-    간단한 패턴 인식과 예측을 제공하는 실험적 기능입니다.
+        #### 2. Categorical Attributes (범주형) - 3개
+        | Attribute | Description | Values |
+        |-----------|-------------|--------|
+        | **ma_cross** | 이동평균선 교차 신호 | golden, dead, neutral |
+        | **rsi_signal** | RSI 과매수/과매도 신호 | overbought, oversold, neutral |
+        | **volume_spike** | 거래량 급등/급락 신호 | high, normal, low |
 
-    ### Historical Analysis
-    날짜 범위를 선택하여 해당 기간의 가격 차트와 통계를 확인합니다.
-    캔들스틱 차트와 주요 통계 지표를 제공합니다.
+        ---
 
-    ### WEKA Analysis
-    WEKA 스타일의 데이터마이닝 분석을 웹에서 직접 수행합니다.
-    Classification, Decision Tree, Clustering, Association Rules를 지원하며 ARFF 파일 다운로드가 가능합니다.
+        ### Class (클래스) - 1개
 
-    ### Model Performance
-    4개 알고리즘의 성능을 비교하고 SVM을 최종 모델로 선택한 이유를 설명합니다.
-    알고리즘별 정확도와 교차 검증 결과를 시각화하여 제공합니다.
+        | Class | Description | Threshold |
+        |-------|-------------|-----------|
+        | **price_direction** | 1시간 후 가격 방향 | UP/DOWN/STABLE |
 
-    ---
+        **분류 기준:**
+        - **UP**: 1시간 후 가격이 0.3% 이상 상승
+        - **DOWN**: 1시간 후 가격이 0.3% 이상 하락
+        - **STABLE**: -0.3% ~ +0.3% 범위 내 유지
 
-    ## Local Installation & Usage
+        ---
 
-    ### Prerequisites
-    ```bash
-    Python 3.9 or higher
-    pip (Python package manager)
-    ```
+        ### Technical Indicators 상세
 
-    ### Installation Steps
+        **1. MA Cross (Moving Average Crossover)**
+        - 단기 이동평균(5시간)과 장기 이동평균(20시간) 비교
+        - **Golden Cross**: MA5 > MA20 (상승 신호)
+        - **Dead Cross**: MA5 < MA20 (하락 신호)
 
-    ```bash
-    # 1. Clone repository
-    git clone https://github.com/Jeong-Ryeol/Bitcoin-Price-Prediction-System.git
-    cd Bitcoin-Price-Prediction-System
+        **2. RSI Signal (Relative Strength Index)**
+        - 14시간 기준 상대강도지수
+        - **Overbought**: RSI > 70 (과매수 -> 하락 예상)
+        - **Oversold**: RSI < 30 (과매도 -> 상승 예상)
 
-    # 2. Create virtual environment
-    python3 -m venv venv
-    source venv/bin/activate  # On Windows: venv\\Scripts\\activate
+        **3. Volume Spike**
+        - 20시간 평균 거래량 대비 비율
+        - **High**: 2배 이상 (급등)
+        - **Low**: 0.5배 이하 (급락)
+        """)
 
-    # 3. Install dependencies
-    pip install -r requirements.txt
+        # 샘플 데이터 표시
+        if df is not None:
+            st.markdown("---")
+            st.markdown("### Sample Data (최근 5개 인스턴스)")
+            st.dataframe(df.tail(5), use_container_width=True)
 
-    # 4. Run the complete pipeline
-    python3 run.py
+    with about_tab3:
+        st.markdown("""
+        ## Features Guide - 각 페이지 기능 설명
 
-    # 5. Launch web application
-    streamlit run app.py
-    ```
+        발표 시 각 페이지를 시연하면서 아래 내용을 설명하세요.
 
-    ### Manual Execution (Step by Step)
+        ---
 
-    ```bash
-    # Step 1: Collect Bitcoin data from Upbit API
-    python3 src/collector.py
+        ### 1. Dashboard
+        **목적**: 데이터셋 전체 개요 및 통계 확인
 
-    # Step 2: Analyze charts and calculate technical indicators
-    python3 src/chart_analyzer.py
+        **주요 기능:**
+        - 총 인스턴스 수, 속성 수, 데이터 기간 표시
+        - 비트코인 가격 시계열 차트 (Plotly Interactive)
+        - 클래스(UP/DOWN/STABLE) 분포 파이 차트
+        - 기술적 지표별 분포 막대 차트
 
-    # Step 3: Generate ARFF files for WEKA
-    python3 src/arff_generator.py
+        **발표 포인트:**
+        > "데이터셋은 총 9,000개 이상의 인스턴스로 구성되어 있으며, WEKA의 최소 요구사항(100개)을 충족합니다."
 
-    # Step 4: Train ML models
-    python3 src/predictor.py
+        ---
 
-    # Step 5: Run web dashboard
-    streamlit run app.py
-    ```
+        ### 2. Live Prediction
+        **목적**: 실시간 데이터로 즉시 예측
 
-    ---
+        **주요 기능:**
+        - Upbit API에서 실시간 200시간 데이터 수집
+        - 기술적 지표 자동 계산
+        - SVM 모델로 1시간 후 가격 방향 예측
+        - 클래스별 확률 분포 표시
 
-    ## Academic Purpose
+        **발표 포인트:**
+        > "실시간으로 API에서 데이터를 가져와 학습된 모델로 즉시 예측합니다."
 
-    이 프로젝트는 데이터마이닝 과목의 과제로 진행되었습니다.
+        ---
 
-    **학습 목표**
-    - 실제 금융 데이터 수집 및 전처리
-    - 시계열 데이터 분석 및 특성 추출
-    - WEKA 데이터마이닝 도구 활용
-    - 다양한 분류 알고리즘 비교 및 평가
-    - 웹 기반 대시보드 개발
+        ### 3. Manual Prediction
+        **목적**: 사용자 입력 데이터로 예측
 
-    **Dataset Statistics**
-    - Total instances: 8,412 (WEKA requirement: 100+)
-    - Total attributes: 9 (8 features + 1 class, WEKA requirement: 4+)
-    - Data period: 2024-11-18 ~ 2025-11-04 (약 1년)
-    - Class distribution: STABLE 70.6%, UP 15.1%, DOWN 14.4%
+        **주요 기능:**
+        - 개별 입력: OHLCV + 기술적 지표 직접 입력
+        - 일괄 예측: CSV 파일 업로드 후 일괄 예측
+        - 예측 결과 다운로드
 
-    ---
+        **발표 포인트:**
+        > "사용자가 직접 데이터를 입력하거나 파일을 업로드하여 예측할 수 있습니다."
 
-    ## Disclaimer
+        ---
 
-    이 시스템은 교육 목적으로만 제작되었습니다. 실제 투자 결정에 사용해서는 안 됩니다.
-    과거 데이터는 미래 수익을 보장하지 않으며, 암호화폐 투자는 높은 리스크를 동반합니다.
+        ### 4. Dataset Explorer
+        **목적**: 전체 데이터셋 탐색 및 분석
 
-    ---
+        **주요 기능:**
+        - 인스턴스 필터링 (클래스별, 날짜별)
+        - 속성 분포 시각화 (히스토그램, 박스플롯)
+        - CSV 다운로드
 
-    ## Developer
+        **발표 포인트:**
+        > "9,000개 이상의 인스턴스를 필터링하고 분석할 수 있습니다."
 
-    **Jeong Won Ryeol**
-    Department of Computer Science and Engineering
+        ---
 
-    GitHub: [github.com/Jeong-Ryeol](https://github.com/Jeong-Ryeol)
-    """)
+        ### 5. Chart Image Analysis
+        **목적**: 차트 이미지 분석 (실험적 기능)
+
+        **주요 기능:**
+        - 차트 스크린샷 업로드
+        - 색상 분석으로 트렌드 감지
+        - 간단한 패턴 인식
+
+        **발표 포인트:**
+        > "차트 이미지를 업로드하면 색상 분석으로 트렌드를 감지합니다."
+
+        ---
+
+        ### 6. Historical Analysis
+        **목적**: 특정 기간 데이터 분석
+
+        **주요 기능:**
+        - 날짜 범위 선택
+        - 캔들스틱 차트 표시
+        - 기간별 통계 (평균, 최고, 최저 가격)
+
+        **발표 포인트:**
+        > "특정 기간의 가격 변동을 캔들스틱 차트로 확인할 수 있습니다."
+
+        ---
+
+        ### 7. WEKA Analysis
+        **목적**: WEKA 스타일 데이터마이닝 분석
+
+        **5개 탭:**
+
+        | Tab | 기능 | 알고리즘 |
+        |-----|------|---------|
+        | **Classification** | 분류 분석 | NB, DT, RF, SVM |
+        | **Decision Tree** | 의사결정나무 시각화 | J48 (CART) |
+        | **Clustering** | 군집 분석 | K-Means (k=3) |
+        | **Association Rules** | 연관규칙 마이닝 | Apriori |
+        | **ANOVA** | 분산분석 | One-Way ANOVA |
+
+        **발표 포인트:**
+        > "WEKA의 주요 기능을 웹에서 직접 실행할 수 있습니다. ANOVA로 클래스 간 평균 차이의 통계적 유의성을 검정합니다."
+
+        ---
+
+        ### 8. Model Performance
+        **목적**: 모델 성능 비교 및 분석
+
+        **주요 기능:**
+        - 4개 알고리즘 정확도 비교
+        - Learning Curve 시각화 (10-Fold CV)
+        - 95% 신뢰구간 표시
+        - 최적 모델 선택 근거 제시
+
+        **발표 포인트:**
+        > "학습곡선과 신뢰구간을 통해 SVM이 최적 모델임을 확인할 수 있습니다."
+        """)
+
+    with about_tab4:
+        st.markdown("""
+        ## Data Mining Methods - 분석 방법론
+
+        이 프로젝트에서 사용된 데이터마이닝 기법들을 설명합니다.
+
+        ---
+
+        ### 1. Classification (분류)
+
+        **목적**: 새로운 인스턴스의 클래스를 예측
+
+        **사용 알고리즘:**
+
+        | Algorithm | Description | 특징 |
+        |-----------|-------------|------|
+        | **Naive Bayes** | 베이즈 정리 기반 확률적 분류 | 빠른 학습, 독립성 가정 |
+        | **Decision Tree (J48)** | 규칙 기반 트리 구조 분류 | 해석 용이, 과적합 위험 |
+        | **Random Forest** | 다수의 결정트리 앙상블 | 높은 정확도, 과적합 방지 |
+        | **SVM (RBF)** | 최적 결정 경계 탐색 | 고차원에 강함, 최고 성능 |
+
+        **평가 지표:**
+        - Accuracy (정확도)
+        - Precision, Recall, F1-Score
+        - Cross-Validation (10-Fold)
+
+        ---
+
+        ### 2. Learning Curve (학습곡선)
+
+        **목적**: 학습 데이터 크기에 따른 모델 성능 변화 분석
+
+        **방법:**
+        - 10%, 20%, ..., 100% 학습 데이터로 모델 학습
+        - 10-Fold Cross Validation으로 성능 측정
+        - 표준편차로 안정성 평가
+
+        **해석:**
+        - 학습곡선이 수렴하면 충분한 데이터
+        - 학습/검증 점수 차이가 크면 과적합
+
+        ---
+
+        ### 3. Performance Confidence Interval (성능 신뢰구간)
+
+        **목적**: 모델 성능의 신뢰 범위 추정
+
+        **방법:**
+        - 10-Fold Cross Validation 수행
+        - 각 Fold의 정확도 수집
+        - 평균 및 표준편차 계산
+        - 95% 신뢰구간: 평균 ± 1.96 × 표준편차
+
+        **해석:**
+        > "SVM 모델의 정확도는 95% 신뢰수준에서 64% ~ 74% 범위입니다."
+
+        ---
+
+        ### 4. ANOVA (분산분석)
+
+        **목적**: 3개 클래스(UP, DOWN, STABLE) 간 속성 평균 차이의 통계적 유의성 검정
+
+        **가설:**
+        - H₀ (귀무가설): 모든 그룹의 평균이 동일
+        - H₁ (대립가설): 적어도 하나의 그룹 평균이 다름
+
+        **해석:**
+        - p-value < 0.05: 그룹 간 평균 차이가 **통계적으로 유의미**
+        - F-statistic이 클수록 그룹 간 차이가 큼
+
+        **예시:**
+        > "volume 속성의 p-value가 0.001로, UP/DOWN/STABLE 그룹 간 거래량 평균 차이가 통계적으로 유의미합니다."
+
+        ---
+
+        ### 5. Clustering (군집분석)
+
+        **목적**: 유사한 인스턴스들을 그룹화
+
+        **알고리즘**: K-Means (k=3)
+        - 3개 클러스터로 시장 상황 분류
+        - 각 클러스터의 중심(Centroid) 분석
+        - 클러스터별 특성 파악
+
+        ---
+
+        ### 6. Association Rules (연관규칙)
+
+        **목적**: 속성 간 연관 패턴 발견
+
+        **알고리즘**: Apriori
+
+        **주요 지표:**
+        - **Support**: 규칙이 전체 데이터에서 나타나는 빈도
+        - **Confidence**: 선행 조건 발생 시 결과가 나타날 확률
+        - **Lift**: 규칙의 유용성 (1보다 크면 유의미)
+
+        **예시:**
+        > "IF ma_cross=golden AND volume_spike=high THEN price_direction=UP (Confidence: 75%, Lift: 2.1)"
+        """)
+
+    with about_tab5:
+        st.markdown("""
+        ## Local Installation & Usage
+
+        ### Prerequisites
+        ```bash
+        Python 3.9 or higher
+        pip (Python package manager)
+        ```
+
+        ### Installation Steps
+
+        ```bash
+        # 1. Clone repository
+        git clone https://github.com/Jeong-Ryeol/Bitcoin-Price-Prediction-System.git
+        cd Bitcoin-Price-Prediction-System
+
+        # 2. Create virtual environment
+        python3 -m venv venv
+        source venv/bin/activate  # On Windows: venv\\Scripts\\activate
+
+        # 3. Install dependencies
+        pip install -r requirements.txt
+
+        # 4. Run the complete pipeline
+        python3 run.py
+
+        # 5. Launch web application
+        streamlit run app.py
+        ```
+
+        ---
+
+        ## Academic Purpose
+
+        이 프로젝트는 **데이터마이닝 과목**의 과제로 진행되었습니다.
+
+        ### 학습 목표
+        - 실제 금융 데이터 수집 및 전처리
+        - 시계열 데이터 분석 및 특성 추출
+        - WEKA 데이터마이닝 도구 활용
+        - 다양한 분류 알고리즘 비교 및 평가
+        - 웹 기반 대시보드 개발
+
+        ### WEKA 요구사항 충족
+
+        | 요구사항 | 조건 | 본 프로젝트 | 충족 |
+        |---------|------|-----------|------|
+        | Instances | 100개 이상 | 9,000개+ | O |
+        | Attributes | 4개 이상 | 9개 | O |
+        | Classification | 분류 분석 | SVM, RF, DT, NB | O |
+        | Clustering | 군집 분석 | K-Means | O |
+        | Association | 연관규칙 | Apriori | O |
+        | Learning Curve | 학습곡선 | 10-Fold CV | O |
+        | ANOVA | 분산분석 | One-Way ANOVA | O |
+
+        ---
+
+        ## Disclaimer
+
+        이 시스템은 **교육 목적**으로만 제작되었습니다.
+        실제 투자 결정에 사용해서는 안 됩니다.
+        과거 데이터는 미래 수익을 보장하지 않으며, 암호화폐 투자는 높은 리스크를 동반합니다.
+
+        ---
+
+        ## Developer
+
+        **Jeong Won Ryeol**
+        Department of Computer Science and Engineering
+
+        GitHub: [github.com/Jeong-Ryeol](https://github.com/Jeong-Ryeol)
+        """)
 
     st.markdown("---")
     st.markdown("Data Mining Project 2025")
