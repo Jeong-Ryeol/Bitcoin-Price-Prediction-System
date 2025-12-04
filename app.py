@@ -1864,6 +1864,9 @@ elif page == "WEKA Analysis":
 elif page == "About":
     st.header("About This Project")
 
+    # About 페이지용 데이터 로드
+    df = load_historical_data()
+
     # GitHub Repository Link
     st.markdown("""
     <div style='margin: 20px 0; padding: 15px; border-left: 3px solid #0366d6;'>
