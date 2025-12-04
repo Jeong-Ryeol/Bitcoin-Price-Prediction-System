@@ -129,7 +129,7 @@ def plot_learning_curves():
     ax1.set_title('Learning Curve: 알고리즘별 성능 비교', fontsize=14, fontweight='bold')
     ax1.legend(loc='lower right', fontsize=11)
     ax1.grid(True, alpha=0.3)
-    ax1.set_ylim([0.5, 1.0])
+    ax1.set_ylim([0.2, 1.0])
 
     # x축 레이블을 퍼센트로 표시
     ax1.set_xticks(train_sizes_abs)

@@ -1704,187 +1704,304 @@ elif page == "WEKA Analysis":
 
     # ===== ANOVA 분석 =====
     with tab5:
-        st.subheader("ANOVA Analysis (분산분석)")
+        st.subheader("ANOVA Analysis (알고리즘 성능 비교)")
 
         st.markdown("""
-        **One-Way ANOVA (일원분산분석)**
+        **One-Way ANOVA (일원분산분석) - 알고리즘 간 성능 비교**
 
-        3개 클래스(UP, DOWN, STABLE)별 수치형 속성의 평균 차이가 통계적으로 유의미한지 검정합니다.
+        Learning Curve에서 50% 이상 훈련 데이터 중 최적의 지점을 선택하고,
+        해당 지점에서 각 알고리즘의 10-Fold CV 정확도를 수집하여 알고리즘 간 성능 차이가 통계적으로 유의미한지 검정합니다.
 
-        - **귀무가설 (H₀)**: 모든 그룹의 평균이 동일하다
-        - **대립가설 (H₁)**: 적어도 하나의 그룹 평균이 다르다
+        - **귀무가설 (H₀)**: 모든 알고리즘의 평균 정확도가 동일하다
+        - **대립가설 (H₁)**: 적어도 하나의 알고리즘 평균 정확도가 다르다
         - **유의수준**: 0.05 (p-value < 0.05이면 귀무가설 기각)
         """)
 
         if st.button("Run ANOVA Analysis", type="primary", key="run_anova"):
-            with st.spinner("ANOVA 분석 중..."):
-                # 수치형 속성
-                numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+            with st.spinner("Learning Curve 분석 및 ANOVA 수행 중... (1-2분 소요)"):
+                from sklearn.model_selection import learning_curve, cross_val_score
+                from sklearn.ensemble import RandomForestClassifier
+                from sklearn.svm import SVC
+                from sklearn.naive_bayes import GaussianNB
+                from sklearn.tree import DecisionTreeClassifier
+                from sklearn.preprocessing import LabelEncoder, StandardScaler
+                import numpy as np
 
-                # 클래스별 데이터 분리
-                groups = {
-                    'UP': df[df['price_direction'] == 'UP'],
-                    'DOWN': df[df['price_direction'] == 'DOWN'],
-                    'STABLE': df[df['price_direction'] == 'STABLE']
+                # 데이터 준비
+                X, y = predictor.prepare_data(df)
+
+                # 알고리즘 정의
+                models = {
+                    'SVM (RBF)': SVC(kernel='rbf', random_state=42),
+                    'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
+                    'Naive Bayes': GaussianNB(),
+                    'Decision Tree': DecisionTreeClassifier(max_depth=10, random_state=42)
                 }
 
-                # ANOVA 결과 저장
-                anova_results = []
+                # 학습 데이터 비율 (50% 이상만)
+                train_sizes = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
 
-                for col in numeric_cols:
-                    # 각 그룹의 데이터 추출
-                    group_up = groups['UP'][col].dropna().values
-                    group_down = groups['DOWN'][col].dropna().values
-                    group_stable = groups['STABLE'][col].dropna().values
+                st.markdown("---")
+                st.markdown("### Step 1: Learning Curve에서 최적 훈련 크기 탐색 (50% 이상)")
 
-                    # One-Way ANOVA
-                    f_stat, p_value = stats.f_oneway(group_up, group_down, group_stable)
+                # 각 알고리즘별 Learning Curve 계산
+                learning_curve_results = {}
+                best_train_size = None
+                best_avg_accuracy = 0
 
-                    # 그룹별 평균
-                    means = {
-                        'UP': group_up.mean(),
-                        'DOWN': group_down.mean(),
-                        'STABLE': group_stable.mean()
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+
+                for idx, (name, model) in enumerate(models.items()):
+                    status_text.text(f"{name} Learning Curve 계산 중...")
+
+                    train_sizes_abs, train_scores, test_scores = learning_curve(
+                        model, X, y,
+                        train_sizes=train_sizes,
+                        cv=10,
+                        scoring='accuracy',
+                        n_jobs=-1,
+                        random_state=42
+                    )
+
+                    learning_curve_results[name] = {
+                        'train_sizes': train_sizes_abs,
+                        'test_mean': test_scores.mean(axis=1),
+                        'test_std': test_scores.std(axis=1),
+                        'test_scores': test_scores  # 각 fold별 점수 저장
                     }
 
-                    anova_results.append({
-                        'Attribute': col,
-                        'F-statistic': f_stat,
-                        'p-value': p_value,
-                        'Significant': 'Yes' if p_value < 0.05 else 'No',
-                        'UP Mean': means['UP'],
-                        'DOWN Mean': means['DOWN'],
-                        'STABLE Mean': means['STABLE']
+                    progress_bar.progress((idx + 1) / len(models))
+
+                # 모든 알고리즘의 평균 정확도가 가장 높은 훈련 크기 찾기
+                for i, size in enumerate(train_sizes):
+                    avg_accuracy = np.mean([learning_curve_results[name]['test_mean'][i] for name in models.keys()])
+                    if avg_accuracy > best_avg_accuracy:
+                        best_avg_accuracy = avg_accuracy
+                        best_train_size_idx = i
+                        best_train_size = train_sizes[i]
+
+                best_train_size_abs = learning_curve_results['SVM (RBF)']['train_sizes'][best_train_size_idx]
+
+                status_text.text("완료!")
+                st.success(f"최적 훈련 크기: {best_train_size*100:.0f}% ({best_train_size_abs:,}개 인스턴스)")
+
+                # Learning Curve 그래프 표시
+                st.markdown("---")
+                st.markdown("### Learning Curve (50% 이상)")
+
+                import plotly.graph_objects as go
+                fig_lc = go.Figure()
+
+                colors = {
+                    'SVM (RBF)': 'red',
+                    'Random Forest': 'green',
+                    'Naive Bayes': 'blue',
+                    'Decision Tree': 'orange'
+                }
+
+                for name in models.keys():
+                    result = learning_curve_results[name]
+                    fig_lc.add_trace(go.Scatter(
+                        x=result['train_sizes'],
+                        y=result['test_mean'] * 100,
+                        mode='lines+markers',
+                        name=name,
+                        line=dict(color=colors[name], width=3 if name == 'SVM (RBF)' else 2),
+                        marker=dict(size=10 if name == 'SVM (RBF)' else 6)
+                    ))
+
+                # 최적 지점 표시
+                fig_lc.add_vline(x=best_train_size_abs, line_dash="dash", line_color="gray",
+                                annotation_text=f"최적 지점: {best_train_size*100:.0f}%")
+
+                fig_lc.update_layout(
+                    title='Learning Curve: 알고리즘별 10-Fold CV 정확도',
+                    xaxis_title='훈련 데이터 크기',
+                    yaxis_title='정확도 (%)',
+                    height=500,
+                    yaxis=dict(range=[20, 100])
+                )
+                st.plotly_chart(fig_lc, use_container_width=True)
+
+                # Step 2: 최적 지점에서 10-Fold CV 수행
+                st.markdown("---")
+                st.markdown(f"### Step 2: 최적 지점({best_train_size*100:.0f}%)에서 10-Fold CV 정확도 수집")
+
+                # 최적 훈련 크기로 데이터 샘플링
+                np.random.seed(42)
+                sample_size = int(len(X) * best_train_size)
+                indices = np.random.choice(len(X), sample_size, replace=False)
+                X_sampled = X[indices]
+                y_sampled = y[indices]
+
+                # 각 알고리즘별 10-Fold CV 수행
+                cv_results = {}
+                fold_data = []
+
+                for name, model in models.items():
+                    cv_scores = cross_val_score(model, X_sampled, y_sampled, cv=10, scoring='accuracy')
+                    cv_results[name] = cv_scores
+
+                    for fold_idx, score in enumerate(cv_scores, 1):
+                        fold_data.append({
+                            'Algorithm': name,
+                            'Fold': fold_idx,
+                            'Accuracy': score * 100
+                        })
+
+                # 10-Fold CV 결과 테이블
+                st.markdown("#### 알고리즘별 10-Fold CV 정확도 (%)")
+
+                # 테이블 형식으로 표시
+                cv_df = pd.DataFrame({
+                    'Fold': [f'Fold {i}' for i in range(1, 11)] + ['평균', '표준편차'],
+                })
+
+                for name in models.keys():
+                    scores = cv_results[name] * 100
+                    cv_df[name] = list(scores) + [scores.mean(), scores.std()]
+
+                # 마지막 2행 (평균, 표준편차) 포맷팅
+                display_cv_df = cv_df.copy()
+                for name in models.keys():
+                    display_cv_df[name] = display_cv_df[name].apply(lambda x: f"{x:.2f}%")
+
+                st.dataframe(display_cv_df, use_container_width=True)
+
+                # Step 3: ANOVA 수행
+                st.markdown("---")
+                st.markdown("### Step 3: One-Way ANOVA 검정")
+
+                # ANOVA 수행
+                f_stat, p_value = stats.f_oneway(
+                    cv_results['SVM (RBF)'],
+                    cv_results['Random Forest'],
+                    cv_results['Naive Bayes'],
+                    cv_results['Decision Tree']
+                )
+
+                # 자유도 계산
+                k = len(models)  # 그룹 수 (알고리즘 수)
+                n = 10  # 각 그룹의 샘플 수 (Fold 수)
+                df_between = k - 1  # 그룹 간 자유도
+                df_within = k * (n - 1)  # 그룹 내 자유도
+
+                # F 임계값 (유의수준 0.05)
+                f_critical = stats.f.ppf(0.95, df_between, df_within)
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("F-statistic", f"{f_stat:.4f}")
+                with col2:
+                    st.metric("p-value", f"{p_value:.6f}")
+                with col3:
+                    st.metric("F-critical (α=0.05)", f"{f_critical:.4f}")
+
+                st.markdown(f"""
+                **자유도:**
+                - df₁ (그룹 간) = k - 1 = {k} - 1 = **{df_between}**
+                - df₂ (그룹 내) = k(n-1) = {k}({n}-1) = **{df_within}**
+                """)
+
+                # 결론
+                st.markdown("---")
+                st.markdown("### 결론")
+
+                if p_value < 0.05:
+                    st.success(f"""
+                    **귀무가설 기각** (p-value = {p_value:.6f} < 0.05)
+
+                    알고리즘 간 평균 정확도에 **통계적으로 유의미한 차이**가 있습니다.
+
+                    F-statistic ({f_stat:.4f}) > F-critical ({f_critical:.4f}) 이므로 귀무가설을 기각합니다.
+                    """)
+                else:
+                    st.warning(f"""
+                    **귀무가설 채택** (p-value = {p_value:.6f} >= 0.05)
+
+                    알고리즘 간 평균 정확도에 **통계적으로 유의미한 차이가 없습니다**.
+                    """)
+
+                # 알고리즘별 성능 순위
+                st.markdown("---")
+                st.markdown("### 알고리즘별 성능 순위")
+
+                ranking_data = []
+                for name in models.keys():
+                    scores = cv_results[name]
+                    ranking_data.append({
+                        'Algorithm': name,
+                        'Mean': scores.mean() * 100,
+                        'Std': scores.std() * 100
                     })
 
-                # 결과 표시
+                ranking_df = pd.DataFrame(ranking_data).sort_values('Mean', ascending=False)
+                ranking_df['Rank'] = range(1, len(ranking_df) + 1)
+                ranking_df = ranking_df[['Rank', 'Algorithm', 'Mean', 'Std']]
+                ranking_df.columns = ['순위', '알고리즘', '평균 정확도 (%)', '표준편차 (%)']
+
+                display_ranking = ranking_df.copy()
+                display_ranking['평균 정확도 (%)'] = display_ranking['평균 정확도 (%)'].apply(lambda x: f"{x:.2f}")
+                display_ranking['표준편차 (%)'] = display_ranking['표준편차 (%)'].apply(lambda x: f"±{x:.2f}")
+
+                st.dataframe(display_ranking, use_container_width=True)
+
+                # 박스플롯
                 st.markdown("---")
-                st.markdown("### ANOVA 결과")
+                st.markdown("### 알고리즘별 정확도 분포 (Box Plot)")
 
-                result_df = pd.DataFrame(anova_results)
-
-                # 테이블 표시
-                display_df = result_df.copy()
-                display_df['F-statistic'] = display_df['F-statistic'].apply(lambda x: f"{x:.4f}")
-                display_df['p-value'] = display_df['p-value'].apply(lambda x: f"{x:.6f}")
-                display_df['UP Mean'] = display_df['UP Mean'].apply(lambda x: f"{x:,.0f}")
-                display_df['DOWN Mean'] = display_df['DOWN Mean'].apply(lambda x: f"{x:,.0f}")
-                display_df['STABLE Mean'] = display_df['STABLE Mean'].apply(lambda x: f"{x:,.0f}")
-
-                st.dataframe(display_df, use_container_width=True)
-
-                # 유의미한 속성 수
-                significant_count = sum(1 for r in anova_results if r['p-value'] < 0.05)
-                st.info(f"5개 속성 중 {significant_count}개가 통계적으로 유의미한 차이를 보입니다 (p < 0.05)")
+                fold_df = pd.DataFrame(fold_data)
+                fig_box = px.box(
+                    fold_df,
+                    x='Algorithm',
+                    y='Accuracy',
+                    color='Algorithm',
+                    color_discrete_map={
+                        'SVM (RBF)': 'red',
+                        'Random Forest': 'green',
+                        'Naive Bayes': 'blue',
+                        'Decision Tree': 'orange'
+                    },
+                    title='10-Fold CV 정확도 분포 비교'
+                )
+                fig_box.update_layout(height=500, showlegend=False)
+                st.plotly_chart(fig_box, use_container_width=True)
 
                 # session_state에 결과 저장
-                st.session_state['anova_results'] = anova_results
-
-        # 박스플롯 시각화 (결과가 있을 때만)
-        if 'anova_results' in st.session_state:
-            anova_results = st.session_state['anova_results']
-
-            st.markdown("---")
-            st.markdown("### 클래스별 분포 비교 (Box Plot)")
-
-            numeric_cols = ['open', 'high', 'low', 'close', 'volume']
-
-            # 속성 선택
-            selected_attr = st.selectbox(
-                "시각화할 속성 선택",
-                numeric_cols,
-                key="anova_attr_select"
-            )
-
-            # 박스플롯 생성
-            fig_box = px.box(
-                df,
-                x='price_direction',
-                y=selected_attr,
-                color='price_direction',
-                color_discrete_map={'UP': 'red', 'DOWN': 'blue', 'STABLE': 'gray'},
-                title=f'{selected_attr} 분포 by Price Direction',
-                labels={
-                    'price_direction': 'Price Direction',
-                    selected_attr: selected_attr
+                st.session_state['anova_algorithm_results'] = {
+                    'cv_results': cv_results,
+                    'f_stat': f_stat,
+                    'p_value': p_value,
+                    'best_train_size': best_train_size,
+                    'learning_curve_results': learning_curve_results
                 }
-            )
-            fig_box.update_layout(height=500, showlegend=False)
-            st.plotly_chart(fig_box, use_container_width=True)
 
-            # 선택한 속성의 상세 통계
-            selected_result = next(r for r in anova_results if r['Attribute'] == selected_attr)
-
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric(
-                    "F-statistic",
-                    f"{selected_result['F-statistic']:.4f}"
-                )
-            with col2:
-                st.metric(
-                    "p-value",
-                    f"{selected_result['p-value']:.6f}"
-                )
-            with col3:
-                if selected_result['p-value'] < 0.05:
-                    st.success("유의미함 (p < 0.05)")
-                else:
-                    st.warning("유의미하지 않음 (p >= 0.05)")
-
-            # 전체 속성 박스플롯
+        # 결과가 있으면 해석 표시
+        if 'anova_algorithm_results' in st.session_state:
             st.markdown("---")
-            st.markdown("### 전체 속성 비교")
+            st.markdown("### ANOVA 분석 방법 설명")
 
-            # 2행 3열 그리드로 박스플롯 표시
-            cols = st.columns(3)
-            for i, col_name in enumerate(numeric_cols):
-                with cols[i % 3]:
-                    fig = px.box(
-                        df,
-                        x='price_direction',
-                        y=col_name,
-                        color='price_direction',
-                        color_discrete_map={'UP': 'red', 'DOWN': 'blue', 'STABLE': 'gray'},
-                        title=f'{col_name}'
-                    )
-                    fig.update_layout(
-                        height=300,
-                        showlegend=False,
-                        xaxis_title='',
-                        yaxis_title=''
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+            with st.expander("ANOVA 분석 과정 상세 설명"):
+                st.markdown("""
+                **1. Learning Curve 분석**
+                - 훈련 데이터 크기를 50%, 60%, 70%, 80%, 90%, 100%로 변화
+                - 각 크기에서 4개 알고리즘의 10-Fold CV 정확도 계산
+                - 모든 알고리즘의 평균 정확도가 가장 높은 지점 선택
 
-                    # p-value 표시
-                    result = next(r for r in anova_results if r['Attribute'] == col_name)
-                    if result['p-value'] < 0.05:
-                        st.caption(f"p={result['p-value']:.4f} (유의미)")
-                    else:
-                        st.caption(f"p={result['p-value']:.4f}")
+                **2. 10-Fold CV 정확도 수집**
+                - 최적 훈련 크기에서 각 알고리즘별로 10-Fold CV 수행
+                - 각 알고리즘당 10개의 정확도 값 수집
 
-            # ANOVA 해석
-            st.markdown("---")
-            st.markdown("### ANOVA 결과 해석")
+                **3. One-Way ANOVA 수행**
+                - 4개 그룹(알고리즘) × 10개 샘플(Fold)
+                - F-statistic = (그룹 간 분산) / (그룹 내 분산)
+                - 자유도: df₁ = k-1 = 3, df₂ = k(n-1) = 36
 
-            st.markdown("""
-            **분석 결과 요약:**
-
-            ANOVA 분석은 세 그룹(UP, DOWN, STABLE) 간에 각 수치형 속성의 평균이
-            통계적으로 유의미하게 다른지를 검정합니다.
-
-            - **F-statistic**: 그룹 간 분산과 그룹 내 분산의 비율
-              - 값이 클수록 그룹 간 차이가 크다는 의미
-
-            - **p-value**: 귀무가설이 참일 때 관측된 결과가 나올 확률
-              - p < 0.05: 그룹 간 평균 차이가 통계적으로 유의미
-              - p >= 0.05: 그룹 간 평균 차이가 우연에 의한 것일 수 있음
-
-            **주의사항:**
-            - ANOVA는 어떤 그룹 간에 차이가 있는지는 알려주지 않음
-            - 사후 검정(Post-hoc test)이 필요할 수 있음
-            - 등분산성, 정규성 가정이 필요하나 표본이 충분히 크면 강건함
-            """)
+                **4. 결론 도출**
+                - p-value < 0.05: 알고리즘 간 유의미한 차이 있음
+                - p-value >= 0.05: 알고리즘 간 유의미한 차이 없음
+                """)
 
 
 elif page == "About":
