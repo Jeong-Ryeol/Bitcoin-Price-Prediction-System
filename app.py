@@ -1709,12 +1709,13 @@ elif page == "WEKA Analysis":
         st.markdown("""
         **Analysis of Variance (ANOVA) - 알고리즘 간 성능 비교**
 
-        Learning Curve에서 50% 이상 훈련 데이터 중 최적의 지점을 선택하고,
-        해당 지점에서 각 알고리즘의 10-Fold CV 정확도를 수집하여 알고리즘 간 평균 차이가 우연에 의한 것인지, 실제 차이가 있는지 검정합니다.
+        1. Learning Curve 그리기 (10%~100% 훈련 크기)
+        2. 최적 훈련 크기(80%)에서 각 알고리즘을 **10번 반복 측정** (10-Fold CV)
+        3. 알고리즘 간 평균 차이가 우연에 의한 것인지 검정
 
-        - **k**: 알고리즘 수 (methods)
-        - **n**: 시행 횟수 (trials, 10-Fold CV)
-        - **F 분포**: 자유도 k-1, k(n-1)
+        - **k**: 알고리즘 수 (methods) = 4
+        - **n**: 측정 횟수 (10-Fold CV) = 10
+        - **F 분포**: 자유도 k-1=3, k(n-1)=36
         """)
 
         if st.button("Run ANOVA Analysis", type="primary", key="run_anova"):
@@ -1738,11 +1739,12 @@ elif page == "WEKA Analysis":
                     'Decision Tree': DecisionTreeClassifier(max_depth=10, random_state=42)
                 }
 
-                # 학습 데이터 비율 (50% 이상만)
-                train_sizes = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+                # 학습 데이터 비율 (ANOVA용 80% 근처 포함)
+                # Learning Curve: 10%~100% (10% 간격) + ANOVA용 75%, 85% 추가
+                train_sizes = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 1.0])
 
                 st.markdown("---")
-                st.markdown("### Step 1: Learning Curve에서 최적 훈련 크기 탐색 (50% 이상)")
+                st.markdown("### Step 1: Learning Curve (10%~100%)")
 
                 # 각 알고리즘별 Learning Curve 계산
                 learning_curve_results = {}
@@ -1773,23 +1775,15 @@ elif page == "WEKA Analysis":
 
                     progress_bar.progress((idx + 1) / len(models))
 
-                # 모든 알고리즘의 평균 정확도가 가장 높은 훈련 크기 찾기
-                for i, size in enumerate(train_sizes):
-                    avg_accuracy = np.mean([learning_curve_results[name]['test_mean'][i] for name in models.keys()])
-                    if avg_accuracy > best_avg_accuracy:
-                        best_avg_accuracy = avg_accuracy
-                        best_train_size_idx = i
-                        best_train_size = train_sizes[i]
-
-                best_train_size_abs = learning_curve_results['SVM (RBF)']['train_sizes'][best_train_size_idx]
+                # 최적 훈련 크기를 80%로 고정
+                best_train_size = 0.8
+                best_train_size_idx = list(train_sizes).index(0.8)
+                best_avg_accuracy = np.mean([learning_curve_results[name]['test_mean'][best_train_size_idx] for name in models.keys()])
 
                 status_text.text("완료!")
-                st.success(f"최적 훈련 크기: {best_train_size*100:.0f}% ({best_train_size_abs:,}개 인스턴스)")
+                st.success(f"최적 훈련 크기: {best_train_size*100:.0f}% (고정)")
 
                 # Learning Curve 그래프 표시
-                st.markdown("---")
-                st.markdown("### Learning Curve (50% 이상)")
-
                 import plotly.graph_objects as go
                 fig_lc = go.Figure()
 
@@ -1800,10 +1794,13 @@ elif page == "WEKA Analysis":
                     'Decision Tree': 'orange'
                 }
 
+                # X축을 퍼센트로 표시
+                x_percent = [f'{int(s*100)}%' for s in train_sizes]
+
                 for name in models.keys():
                     result = learning_curve_results[name]
                     fig_lc.add_trace(go.Scatter(
-                        x=result['train_sizes'],
+                        x=x_percent,
                         y=result['test_mean'] * 100,
                         mode='lines+markers',
                         name=name,
@@ -1811,79 +1808,82 @@ elif page == "WEKA Analysis":
                         marker=dict(size=10 if name == 'SVM (RBF)' else 6)
                     ))
 
-                # 최적 지점 표시
-                fig_lc.add_vline(x=best_train_size_abs, line_dash="dash", line_color="gray",
-                                annotation_text=f"최적 지점: {best_train_size*100:.0f}%")
+                # 최적 지점 표시 (annotation 사용)
+                best_idx = list(train_sizes).index(best_train_size)
+                fig_lc.add_annotation(
+                    x=f'{int(best_train_size*100)}%',
+                    y=best_avg_accuracy * 100 + 5,
+                    text=f"최적: {best_train_size*100:.0f}%",
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowcolor="gray",
+                    font=dict(color="gray")
+                )
 
                 fig_lc.update_layout(
                     title='Learning Curve: 알고리즘별 10-Fold CV 정확도',
-                    xaxis_title='훈련 데이터 크기',
-                    yaxis_title='정확도 (%)',
+                    xaxis_title='Training Set Size (%)',
+                    yaxis_title='Accuracy (%)',
                     height=500,
                     yaxis=dict(range=[20, 100])
                 )
                 st.plotly_chart(fig_lc, use_container_width=True)
 
-                # Step 2: 최적 지점에서 10-Fold CV 수행
+                # Step 2: 최적 훈련 크기(80%)에서 10-Fold CV 결과 수집 (ANOVA용)
                 st.markdown("---")
-                st.markdown(f"### Step 2: 최적 지점({best_train_size*100:.0f}%)에서 10-Fold CV 정확도 수집")
+                st.markdown(f"### Step 2: 최적 훈련 크기({int(best_train_size*100)}%)에서 10번 반복 측정")
 
-                # 최적 훈련 크기로 데이터 샘플링
-                np.random.seed(42)
-                sample_size = int(len(X) * best_train_size)
-                indices = np.random.choice(len(X), sample_size, replace=False)
-                X_sampled = X[indices]
-                y_sampled = y[indices]
+                st.markdown(f"""
+                **반복 측정 (10-Fold CV)**: 최적 훈련 크기 **{int(best_train_size*100)}%**에서 각 알고리즘을 10번 반복 실행
+                - 10-Fold Cross Validation = 10번의 독립적인 측정
+                - 각 Fold마다 다른 Train/Test 분할로 정확도 측정
+                - 각 알고리즘마다 10개의 측정값
+                """)
 
-                # 각 알고리즘별 10-Fold CV 수행
-                cv_results = {}
-                fold_data = []
+                # 최적 훈련 크기 인덱스에서 10-Fold CV 결과 추출
+                best_idx = list(train_sizes).index(best_train_size)
 
-                for name, model in models.items():
-                    cv_scores = cross_val_score(model, X_sampled, y_sampled, cv=10, scoring='accuracy')
-                    cv_results[name] = cv_scores
+                # 각 알고리즘별로 10-Fold CV 결과 수집
+                anova_data = {}
+                for name in models.keys():
+                    # 최적 훈련 크기에서의 10개 Fold 값
+                    anova_data[name] = learning_curve_results[name]['test_scores'][best_idx]
 
-                    for fold_idx, score in enumerate(cv_scores, 1):
-                        fold_data.append({
-                            'Algorithm': name,
-                            'Fold': fold_idx,
-                            'Accuracy': score * 100
-                        })
-
-                # 10-Fold CV 결과 테이블
+                # 결과 테이블
                 st.markdown("#### 알고리즘별 10-Fold CV 정확도 (%)")
 
                 # 테이블 형식으로 표시
-                cv_df = pd.DataFrame({
-                    'Fold': [f'Fold {i}' for i in range(1, 11)] + ['평균', '표준편차'],
+                fold_labels = [f'Fold {i+1}' for i in range(10)]
+                anova_df = pd.DataFrame({
+                    'Fold': fold_labels + ['평균', '표준편차'],
                 })
 
                 for name in models.keys():
-                    scores = cv_results[name] * 100
-                    cv_df[name] = list(scores) + [scores.mean(), scores.std()]
+                    scores = anova_data[name] * 100
+                    anova_df[name] = list(scores) + [scores.mean(), scores.std()]
 
-                # 마지막 2행 (평균, 표준편차) 포맷팅
-                display_cv_df = cv_df.copy()
+                # 포맷팅
+                display_anova_df = anova_df.copy()
                 for name in models.keys():
-                    display_cv_df[name] = display_cv_df[name].apply(lambda x: f"{x:.2f}%")
+                    display_anova_df[name] = display_anova_df[name].apply(lambda x: f"{x:.2f}%")
 
-                st.dataframe(display_cv_df, use_container_width=True)
+                st.dataframe(display_anova_df, use_container_width=True)
 
                 # Step 3: ANOVA 수행
                 st.markdown("---")
                 st.markdown("### Step 3: One-Way ANOVA 검정")
 
-                # ANOVA 수행
+                # ANOVA 수행 (각 알고리즘의 훈련 크기별 정확도로)
                 f_stat, p_value = stats.f_oneway(
-                    cv_results['SVM (RBF)'],
-                    cv_results['Random Forest'],
-                    cv_results['Naive Bayes'],
-                    cv_results['Decision Tree']
+                    anova_data['SVM (RBF)'],
+                    anova_data['Random Forest'],
+                    anova_data['Naive Bayes'],
+                    anova_data['Decision Tree']
                 )
 
                 # 자유도 계산
                 k = len(models)  # 그룹 수 (알고리즘 수)
-                n = 10  # 각 그룹의 샘플 수 (Fold 수)
+                n = 10  # 각 그룹의 샘플 수 (10-Fold CV = 10번 측정)
                 df_between = k - 1  # 그룹 간 자유도
                 df_within = k * (n - 1)  # 그룹 내 자유도
 
@@ -1899,7 +1899,7 @@ elif page == "WEKA Analysis":
                 st.markdown(f"""
                 **F 분포 자유도:**
                 - k = {k} (알고리즘 수)
-                - n = {n} (시행 횟수, 10-Fold)
+                - n = {n} (측정 횟수 = 10-Fold CV)
                 - 자유도: k-1 = **{df_between}**, k(n-1) = **{df_within}**
                 """)
 
@@ -1930,7 +1930,7 @@ elif page == "WEKA Analysis":
 
                 ranking_data = []
                 for name in models.keys():
-                    scores = cv_results[name]
+                    scores = anova_data[name]
                     ranking_data.append({
                         'Algorithm': name,
                         'Mean': scores.mean() * 100,
@@ -1952,9 +1952,18 @@ elif page == "WEKA Analysis":
                 st.markdown("---")
                 st.markdown("### 알고리즘별 정확도 분포 (Box Plot)")
 
-                fold_df = pd.DataFrame(fold_data)
+                # 박스플롯용 데이터 준비 (10-Fold CV 결과)
+                box_data = []
+                for name in models.keys():
+                    for fold_score in anova_data[name]:
+                        box_data.append({
+                            'Algorithm': name,
+                            'Accuracy': fold_score * 100
+                        })
+
+                box_df = pd.DataFrame(box_data)
                 fig_box = px.box(
-                    fold_df,
+                    box_df,
                     x='Algorithm',
                     y='Accuracy',
                     color='Algorithm',
@@ -1964,14 +1973,14 @@ elif page == "WEKA Analysis":
                         'Naive Bayes': 'blue',
                         'Decision Tree': 'orange'
                     },
-                    title='10-Fold CV 정확도 분포 비교'
+                    title=f'10-Fold CV 정확도 분포 비교 (훈련 크기: {int(best_train_size*100)}%)'
                 )
                 fig_box.update_layout(height=500, showlegend=False)
                 st.plotly_chart(fig_box, use_container_width=True)
 
                 # session_state에 결과 저장
                 st.session_state['anova_algorithm_results'] = {
-                    'cv_results': cv_results,
+                    'anova_data': anova_data,
                     'f_stat': f_stat,
                     'p_value': p_value,
                     'best_train_size': best_train_size,
@@ -1983,23 +1992,76 @@ elif page == "WEKA Analysis":
             st.markdown("---")
             st.markdown("### ANOVA 분석 방법 설명")
 
-            with st.expander("ANOVA 분석 과정 상세 설명"):
+            with st.expander("ANOVA 분석 과정 상세 설명 (발표용)"):
                 st.markdown("""
-                **Analysis of Variance (ANOVA)**
+                ## ANOVA (Analysis of Variance) 분석 방법
 
-                여러 샘플 평균 간의 차이가 우연에 의한 것인지, 실제로 차이가 있는지 검정
+                ### 1. ANOVA란?
+                - **목적**: 여러 알고리즘(그룹)의 평균 성능 차이가 **우연에 의한 것인지, 실제 차이인지** 통계적으로 검정
+                - **핵심 질문**: "SVM, Random Forest, Naive Bayes, Decision Tree 중 성능 차이가 정말 있는가?"
 
-                **1. 데이터 수집**
-                - k개 알고리즘 (methods)
-                - 각 알고리즘당 n번의 시행 (10-Fold CV)
+                ---
 
-                **2. F 분포**
-                - 자유도: k-1, k(n-1)
-                - 예: k=4, n=10 → 자유도 3, 36
+                ### 2. 데이터 수집 방법
 
-                **3. 결론**
-                - f 값이 f_{α,k-1,k(n-1)} 을 초과하면, 모든 그룹의 평균이 동일하다는 가정을 기각
-                - α = 0.05 (level of significance)
+                **Step 1: Learning Curve 생성**
+                - 훈련 데이터 크기를 10%~100%까지 변화시키며 각 알고리즘의 정확도 측정
+                - 각 지점에서 10-Fold Cross Validation 수행
+
+                **Step 2: 최적점 선택**
+                - Learning Curve에서 **80%를 최적 훈련 크기**로 선택
+                - (교수님 지침: 50% 이상에서 안정적인 지점 선택)
+
+                **Step 3: 반복 측정 (10-Fold CV)**
+                - 최적 훈련 크기(80%)에서 각 알고리즘을 **10번 반복 실행**
+                - 10-Fold CV = 10번의 독립적인 Train/Test 분할로 10개 측정값 획득
+                - 예: SVM → 68%, 69%, 70%, 67%, 71%, 69%, 70%, 68%, 72%, 70%
+
+                ---
+
+                ### 3. ANOVA 변수 설정
+
+                | 변수 | 값 | 의미 |
+                |------|-----|------|
+                | **k** | 4 | 알고리즘(그룹) 수 |
+                | **n** | 10 | 측정 횟수 (10-Fold CV) |
+                | **df₁** | k-1 = 3 | 그룹 간 자유도 |
+                | **df₂** | k(n-1) = 36 | 그룹 내 자유도 |
+
+                ---
+
+                ### 4. F 검정
+
+                - **F 통계량 계산**: 그룹 간 분산 / 그룹 내 분산
+                - **F 임계값**: F분포표에서 α=0.05, df₁=3, df₂=36 에 해당하는 값
+                - **결론**:
+                  - F 통계량 > F 임계값 → **알고리즘 간 성능 차이가 통계적으로 유의미함**
+                  - F 통계량 ≤ F 임계값 → 차이가 우연에 의한 것일 수 있음
+
+                ---
+
+                ### 5. 왜 10-Fold CV를 사용했나?
+
+                - **10-Fold CV = 10번 반복 실행**: 같은 데이터셋에서 10번 독립적으로 측정
+                - 각 Fold는 서로 다른 Train/Test 분할 → **독립적인 측정**
+                - ANOVA에 필요한 n개의 측정값을 자연스럽게 획득
+                """)
+
+            with st.expander("발표 시 말로 설명하는 방법"):
+                st.markdown("""
+                ## 발표 스크립트 예시
+
+                > "ANOVA 분석을 통해 4개 알고리즘의 성능 차이가 통계적으로 유의미한지 검정했습니다.
+                >
+                > 먼저 Learning Curve를 그려서 최적의 훈련 데이터 크기를 80%로 선정했습니다.
+                >
+                > 그 다음 최적 훈련 크기(80%)에서 각 알고리즘을 10번 반복 실행했습니다.
+                > 10-Fold Cross Validation을 사용하면 각 알고리즘마다 10개의 정확도 값이 나옵니다.
+                >
+                > 예를 들어 SVM은 68%, 69%, 70%, 67%, 71%... 이런 식으로 10개 값이 측정됩니다.
+                >
+                > k=4(알고리즘 수), n=10(측정 횟수)으로 자유도는 3과 36이 되고,
+                > 계산된 F값이 임계값을 초과하므로 알고리즘 간 성능 차이가 통계적으로 유의미합니다."
                 """)
 
 
@@ -2100,21 +2162,12 @@ elif page == "About":
         st.markdown("""
         ## Data Structure: Instance = Attribute + Class
 
-        데이터마이닝에서 **인스턴스(Instance)**는 **속성(Attribute)**과 **클래스(Class)**로 구성됩니다.
-
-        ---
-
         ### Instance 구조
 
-        ```
-        Instance = [Attribute_1, Attribute_2, ..., Attribute_n, Class]
-        ```
-
-        **본 프로젝트의 구조:**
-        ```
-        Instance = [open, high, low, close, volume, ma_cross, rsi_signal, volume_spike, price_direction]
-                    |______________ Attributes (8개) ___________________|  |__ Class (1개) __|
-        ```
+        | 구성요소 | 개수 | 항목 |
+        |---------|------|------|
+        | **Attributes** | 8개 | open, high, low, close, volume, ma_cross, rsi_signal, volume_spike |
+        | **Class** | 1개 | price_direction |
 
         ---
 
@@ -2179,8 +2232,6 @@ elif page == "About":
         st.markdown("""
         ## Features Guide - 각 페이지 기능 설명
 
-        발표 시 각 페이지를 시연하면서 아래 내용을 설명하세요.
-
         ---
 
         ### 1. Dashboard
@@ -2191,9 +2242,6 @@ elif page == "About":
         - 비트코인 가격 시계열 차트 (Plotly Interactive)
         - 클래스(UP/DOWN/STABLE) 분포 파이 차트
         - 기술적 지표별 분포 막대 차트
-
-        **발표 포인트:**
-        > "데이터셋은 총 9,000개 이상의 인스턴스로 구성되어 있으며, WEKA의 최소 요구사항(100개)을 충족합니다."
 
         ---
 
@@ -2206,9 +2254,6 @@ elif page == "About":
         - SVM 모델로 1시간 후 가격 방향 예측
         - 클래스별 확률 분포 표시
 
-        **발표 포인트:**
-        > "실시간으로 API에서 데이터를 가져와 학습된 모델로 즉시 예측합니다."
-
         ---
 
         ### 3. Manual Prediction
@@ -2218,9 +2263,6 @@ elif page == "About":
         - 개별 입력: OHLCV + 기술적 지표 직접 입력
         - 일괄 예측: CSV 파일 업로드 후 일괄 예측
         - 예측 결과 다운로드
-
-        **발표 포인트:**
-        > "사용자가 직접 데이터를 입력하거나 파일을 업로드하여 예측할 수 있습니다."
 
         ---
 
@@ -2232,9 +2274,6 @@ elif page == "About":
         - 속성 분포 시각화 (히스토그램, 박스플롯)
         - CSV 다운로드
 
-        **발표 포인트:**
-        > "9,000개 이상의 인스턴스를 필터링하고 분석할 수 있습니다."
-
         ---
 
         ### 5. Chart Image Analysis
@@ -2245,9 +2284,6 @@ elif page == "About":
         - 색상 분석으로 트렌드 감지
         - 간단한 패턴 인식
 
-        **발표 포인트:**
-        > "차트 이미지를 업로드하면 색상 분석으로 트렌드를 감지합니다."
-
         ---
 
         ### 6. Historical Analysis
@@ -2257,9 +2293,6 @@ elif page == "About":
         - 날짜 범위 선택
         - 캔들스틱 차트 표시
         - 기간별 통계 (평균, 최고, 최저 가격)
-
-        **발표 포인트:**
-        > "특정 기간의 가격 변동을 캔들스틱 차트로 확인할 수 있습니다."
 
         ---
 
@@ -2274,10 +2307,7 @@ elif page == "About":
         | **Decision Tree** | 의사결정나무 시각화 | J48 (CART) |
         | **Clustering** | 군집 분석 | K-Means (k=3) |
         | **Association Rules** | 연관규칙 마이닝 | Apriori |
-        | **ANOVA** | 분산분석 | One-Way ANOVA |
-
-        **발표 포인트:**
-        > "WEKA의 주요 기능을 웹에서 직접 실행할 수 있습니다. ANOVA로 클래스 간 평균 차이의 통계적 유의성을 검정합니다."
+        | **ANOVA** | 알고리즘 성능 비교 | One-Way ANOVA |
 
         ---
 
@@ -2289,9 +2319,6 @@ elif page == "About":
         - Learning Curve 시각화 (10-Fold CV)
         - 95% 신뢰구간 표시
         - 최적 모델 선택 근거 제시
-
-        **발표 포인트:**
-        > "학습곡선과 신뢰구간을 통해 SVM이 최적 모델임을 확인할 수 있습니다."
         """)
 
     with about_tab4:
@@ -2352,20 +2379,26 @@ elif page == "About":
 
         ---
 
-        ### 4. ANOVA (분산분석)
+        ### 4. ANOVA (분산분석) - 알고리즘 성능 비교
 
-        **목적**: 3개 클래스(UP, DOWN, STABLE) 간 속성 평균 차이의 통계적 유의성 검정
+        **목적**: 4개 알고리즘(SVM, RF, NB, DT) 간 성능 차이가 통계적으로 유의미한지 검정
 
-        **가설:**
-        - H₀ (귀무가설): 모든 그룹의 평균이 동일
-        - H₁ (대립가설): 적어도 하나의 그룹 평균이 다름
+        **데이터 수집 방법:**
+        1. Learning Curve를 그려 최적 훈련 크기(80%)를 선정
+        2. 최적 훈련 크기(80%)에서 각 알고리즘을 **10번 반복 실행** (10-Fold CV)
+        3. 각 알고리즘마다 10개의 정확도 측정값 수집
+
+        **ANOVA 변수:**
+        - k = 4 (알고리즘 수)
+        - n = 10 (측정 횟수 = 10-Fold CV)
+        - 자유도: df₁ = k-1 = 3, df₂ = k(n-1) = 36
 
         **해석:**
-        - p-value < 0.05: 그룹 간 평균 차이가 **통계적으로 유의미**
-        - F-statistic이 클수록 그룹 간 차이가 큼
+        - F 통계량 > F 임계값: 알고리즘 간 성능 차이가 **통계적으로 유의미**
+        - F 통계량 ≤ F 임계값: 차이가 우연에 의한 것일 수 있음
 
         **예시:**
-        > "volume 속성의 p-value가 0.001로, UP/DOWN/STABLE 그룹 간 거래량 평균 차이가 통계적으로 유의미합니다."
+        > "F = 15.23 > F(0.05, 3, 36) = 2.87 이므로, 4개 알고리즘 간 성능 차이가 통계적으로 유의미합니다."
 
         ---
 
