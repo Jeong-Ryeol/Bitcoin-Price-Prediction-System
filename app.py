@@ -1284,11 +1284,6 @@ elif page == "Historical Analysis":
 elif page == "WEKA Analysis":
     st.header("🎓 WEKA-Style Analysis")
 
-    st.markdown("""
-    **WEKA 스타일 분석을 웹에서 바로 실행하세요!**
-
-    WEKA 소프트웨어 없이도 동일한 알고리즘으로 분석할 수 있습니다.
-    """)
 
     # 데이터 로드
     df = load_historical_data()
