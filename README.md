@@ -8,6 +8,8 @@
 | **프로젝트명** | Bitcoin Price Prediction System |
 | **학번/이름** | 정원렬 |
 | **GitHub** | https://github.com/Jeong-Ryeol/Bitcoin-Price-Prediction-System |
+| **CICD** | https://bitcoin-price-prediction-system-5nr9dzyvjssdqmygjvwr6k.streamlit.app/ |
+
 
 ---
 
