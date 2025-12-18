@@ -611,13 +611,13 @@ datamining/
 
 ### 주요 특징
 
-✅ **실시간 데이터 수집**: Upbit Public API (무료, API Key 불필요)
-✅ **시간차 예측 구조**: t 시간 데이터 → t+1 시간 방향 예측
-✅ **다양한 ML 알고리즘**: Random Forest, SVM, Naive Bayes, Decision Tree
-✅ **이미지 기반 분석**: 차트 스크린샷 업로드 → AI 패턴 인식 ⭐ NEW!
-✅ **WEKA 완벽 지원**: Classification, Clustering, Association 모두 지원
-✅ **인터랙티브 웹 대시보드**: Streamlit 기반 실시간 시각화
-✅ **클라우드 배포 가능**: Streamlit Cloud 원클릭 배포
+- **실시간 데이터 수집**: Upbit Public API (무료, API Key 불필요)
+- **시간차 예측 구조**: t 시간 데이터 → t+1 시간 방향 예측
+- **다양한 ML 알고리즘**: Random Forest, SVM, Naive Bayes, Decision Tree
+- **이미지 기반 분석**: 차트 스크린샷 업로드 → AI 패턴 인식
+- **WEKA 완벽 지원**: Classification, Clustering, Association 모두 지원
+- **인터랙티브 웹 대시보드**: Streamlit 기반 실시간 시각화
+- **클라우드 배포 가능**: Streamlit Cloud 원클릭 배포
 
 ---
 
