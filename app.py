@@ -468,6 +468,10 @@ elif page == "Live Prediction":
             st.markdown("---")
             st.subheader("Prediction Results")
 
+            # 현재 가격 저장 및 표시
+            current_price = latest['close']
+            st.markdown(f"### 현재 가격: ₩{current_price:,.0f}")
+
             direction_emoji = {
                 'UP': '🔴 UP',
                 'DOWN': '🔵 DOWN',
@@ -479,6 +483,9 @@ elif page == "Live Prediction":
                 try:
                     predictions = lstm_predictor.predict_realtime(current_df)
 
+                    # 임계값 정보
+                    thresholds = config['thresholds']
+
                     # 3개 시간대 결과 표시
                     col1, col2, col3 = st.columns(3)
 
@@ -487,10 +494,25 @@ elif page == "Live Prediction":
                     for horizon, label, col in horizons:
                         if horizon in predictions:
                             pred = predictions[horizon]
+                            threshold = thresholds.get(horizon, 0.3)
+
                             with col:
                                 st.markdown(f"### {label}")
+                                st.caption(f"기준: ±{threshold}%")
                                 st.markdown(f"## {direction_emoji.get(pred['direction'], pred['direction'])}")
                                 st.metric("Confidence", f"{pred['confidence']:.1%}")
+
+                                # 예상 가격 범위 계산
+                                if pred['direction'] == 'UP':
+                                    expected_price = current_price * (1 + threshold / 100)
+                                    st.success(f"예상: ₩{expected_price:,.0f} 이상")
+                                elif pred['direction'] == 'DOWN':
+                                    expected_price = current_price * (1 - threshold / 100)
+                                    st.error(f"예상: ₩{expected_price:,.0f} 이하")
+                                else:
+                                    price_low = current_price * (1 - threshold / 100)
+                                    price_high = current_price * (1 + threshold / 100)
+                                    st.info(f"예상: ₩{price_low:,.0f} ~ ₩{price_high:,.0f}")
 
                                 # 클래스별 확률
                                 if 'probabilities' in pred:
@@ -524,14 +546,28 @@ elif page == "Live Prediction":
                 }
 
                 result = predictor.predict(features)
+                threshold_1h = config['thresholds'].get('1h', 0.3)
 
                 # 결과 표시 (1시간만)
                 col1, col2, col3 = st.columns(3)
 
                 with col1:
                     st.markdown("### 1 Hour")
+                    st.caption(f"기준: ±{threshold_1h}%")
                     st.markdown(f"## {direction_emoji.get(result['prediction'], result['prediction'])}")
                     st.metric("Confidence", f"{result['confidence']:.1%}")
+
+                    # 예상 가격 범위
+                    if result['prediction'] == 'UP':
+                        expected_price = current_price * (1 + threshold_1h / 100)
+                        st.success(f"예상: ₩{expected_price:,.0f} 이상")
+                    elif result['prediction'] == 'DOWN':
+                        expected_price = current_price * (1 - threshold_1h / 100)
+                        st.error(f"예상: ₩{expected_price:,.0f} 이하")
+                    else:
+                        price_low = current_price * (1 - threshold_1h / 100)
+                        price_high = current_price * (1 + threshold_1h / 100)
+                        st.info(f"예상: ₩{price_low:,.0f} ~ ₩{price_high:,.0f}")
 
                 with col2:
                     st.markdown("### 24 Hours")
