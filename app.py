@@ -19,6 +19,16 @@ from collector import BitcoinDataCollector
 from chart_analyzer import ChartAnalyzer
 from predictor import BitcoinPredictor
 from performance_tracker import PerformanceTracker
+from config import load_config, save_config, DEFAULT_CONFIG
+
+# LSTM 모델 가용성 확인
+LSTM_AVAILABLE = False
+try:
+    from predictor import HybridPredictor
+    from lstm_model import check_dependencies
+    LSTM_AVAILABLE = check_dependencies()
+except ImportError:
+    pass
 
 
 # 페이지 설정
@@ -50,7 +60,7 @@ def load_historical_data():
 
 @st.cache_resource
 def load_model():
-    """학습된 모델 로드"""
+    """학습된 SVM 모델 로드"""
     model_path = 'models/bitcoin_predictor.pkl'
 
     if not os.path.exists(model_path):
@@ -59,6 +69,44 @@ def load_model():
     predictor = BitcoinPredictor()
     predictor.load_model(model_path)
     return predictor
+
+
+@st.cache_resource
+def load_lstm_model():
+    """학습된 LSTM+XGBoost 하이브리드 모델 로드"""
+    if not LSTM_AVAILABLE:
+        return None
+
+    model_path = 'models/lstm_xgboost_hybrid.pkl'
+    preprocessor_path = 'models/preprocessors.pkl'
+
+    if not os.path.exists(model_path):
+        return None
+
+    try:
+        config = load_config()
+        predictor = HybridPredictor(config)
+        predictor.load(model_path)
+        return predictor
+    except Exception as e:
+        print(f"LSTM 모델 로드 실패: {e}")
+        return None
+
+
+def get_recent_data_for_lstm(hours=100):
+    """LSTM 예측을 위한 최근 데이터 수집"""
+    collector = BitcoinDataCollector()
+    df = collector.get_candles_hour(count=hours)
+
+    if df is None:
+        return None
+
+    # 차트 분석
+    analyzer = ChartAnalyzer(df)
+    analyzer.calculate_technical_indicators()
+    analyzer.detect_patterns()
+
+    return analyzer.df
 
 
 def get_current_bitcoin_data():
@@ -125,18 +173,80 @@ def create_candlestick_chart(df):
 
 # 사이드바
 with st.sidebar:
-    st.header("⚙ Settings")
+    st.header("Navigation")
 
     page = st.radio(
-        "Navigation",
+        "Select Page",
         ["Dashboard", "Live Prediction", "Manual Prediction", "Dataset Explorer",
          "Chart Image Analysis", "Historical Analysis", "WEKA Analysis", "Model Performance", "About"]
     )
 
     st.markdown("---")
+
+    # 설정 섹션
+    st.header("Prediction Settings")
+
+    # 현재 설정 로드
+    config = load_config()
+
+    # 모델 선택
+    model_options = ["SVM (Basic)"]
+    if LSTM_AVAILABLE and os.path.exists('models/lstm_xgboost_hybrid.pkl'):
+        model_options.append("LSTM+XGBoost (Advanced)")
+
+    selected_model = st.selectbox(
+        "Prediction Model",
+        model_options,
+        index=0
+    )
+
+    # 임계값 설정
+    with st.expander("Threshold Settings", expanded=False):
+        st.caption("UP/DOWN/STABLE 분류 기준 (%)")
+
+        threshold_1h = st.slider(
+            "1-Hour Threshold",
+            min_value=0.1,
+            max_value=2.0,
+            value=float(config['thresholds'].get('1h', 0.3)),
+            step=0.1,
+            help="1시간 예측: ±0.3% 이상 변동시 UP/DOWN"
+        )
+
+        threshold_24h = st.slider(
+            "24-Hour Threshold",
+            min_value=0.5,
+            max_value=5.0,
+            value=float(config['thresholds'].get('24h', 1.5)),
+            step=0.1,
+            help="24시간 예측: ±1.5% 이상 변동시 UP/DOWN"
+        )
+
+        threshold_7d = st.slider(
+            "7-Day Threshold",
+            min_value=2.0,
+            max_value=15.0,
+            value=float(config['thresholds'].get('7d', 5.0)),
+            step=0.5,
+            help="7일 예측: ±5% 이상 변동시 UP/DOWN"
+        )
+
+        if st.button("Save Settings", type="primary"):
+            config['thresholds'] = {
+                '1h': threshold_1h,
+                '24h': threshold_24h,
+                '7d': threshold_7d
+            }
+            save_config(config)
+            st.success("Settings saved!")
+            st.rerun()
+
+    st.markdown("---")
     st.markdown("### Project Info")
     st.markdown("**Data Mining Project**")
-    st.markdown("Bitcoin Price Prediction using Chart Patterns")
+    st.markdown("Bitcoin Price Prediction")
+    if LSTM_AVAILABLE:
+        st.caption("LSTM+XGBoost Available")
 
 
 # 메인 페이지
@@ -198,53 +308,141 @@ if page == "Dashboard":
     st.markdown("---")
     st.subheader("Class Distribution")
 
-    col1, col2 = st.columns(2)
+    # 다중 시간대 클래스 분포 확인
+    horizon_cols = ['direction_1h', 'direction_24h', 'direction_168h']
+    has_multi_horizon = all(col in df.columns for col in horizon_cols)
 
-    with col1:
-        class_counts = df['price_direction'].value_counts()
-        fig_pie = px.pie(
-            values=class_counts.values,
-            names=class_counts.index,
-            title='Price Direction Distribution',
-            color_discrete_map={'UP': 'red', 'DOWN': 'blue', 'STABLE': 'gray'}
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
+    if has_multi_horizon:
+        # 다중 시간대 표시
+        col1, col2, col3 = st.columns(3)
 
-    with col2:
-        # 패턴 분포
-        pattern_data = {
-            'MA Cross': df['ma_cross'].value_counts().to_dict(),
-            'RSI Signal': df['rsi_signal'].value_counts().to_dict(),
-            'Volume Spike': df['volume_spike'].value_counts().to_dict()
-        }
+        horizon_info = [
+            ('direction_1h', '1-Hour Direction', col1),
+            ('direction_24h', '24-Hour Direction', col2),
+            ('direction_168h', '7-Day Direction', col3)
+        ]
 
-        st.markdown("**Chart Patterns**")
-        for pattern, counts in pattern_data.items():
-            st.write(f"**{pattern}:**")
-            for k, v in counts.items():
-                st.write(f"  - {k}: {v} ({v/len(df)*100:.1f}%)")
+        for col_name, title, col in horizon_info:
+            if col_name in df.columns:
+                with col:
+                    class_counts = df[col_name].value_counts()
+                    fig_pie = px.pie(
+                        values=class_counts.values,
+                        names=class_counts.index,
+                        title=title,
+                        color_discrete_map={'UP': 'red', 'DOWN': 'blue', 'STABLE': 'gray'}
+                    )
+                    fig_pie.update_layout(height=300)
+                    st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        # 단일 시간대 (기존)
+        col1, col2 = st.columns(2)
+
+        with col1:
+            class_counts = df['price_direction'].value_counts()
+            fig_pie = px.pie(
+                values=class_counts.values,
+                names=class_counts.index,
+                title='Price Direction Distribution (1-Hour)',
+                color_discrete_map={'UP': 'red', 'DOWN': 'blue', 'STABLE': 'gray'}
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+        with col2:
+            # 패턴 분포
+            pattern_data = {
+                'MA Cross': df['ma_cross'].value_counts().to_dict(),
+                'RSI Signal': df['rsi_signal'].value_counts().to_dict(),
+                'Volume Spike': df['volume_spike'].value_counts().to_dict()
+            }
+
+            st.markdown("**Chart Patterns**")
+            for pattern, counts in pattern_data.items():
+                st.write(f"**{pattern}:**")
+                for k, v in counts.items():
+                    st.write(f"  - {k}: {v} ({v/len(df)*100:.1f}%)")
+
+    # 패턴 분포 (다중 시간대일 때도 표시)
+    if has_multi_horizon:
+        st.markdown("---")
+        st.subheader("Chart Patterns")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            ma_dist = df['ma_cross'].value_counts()
+            st.markdown("**MA Cross**")
+            for k, v in ma_dist.items():
+                st.write(f"- {k}: {v} ({v/len(df)*100:.1f}%)")
+
+        with col2:
+            rsi_dist = df['rsi_signal'].value_counts()
+            st.markdown("**RSI Signal**")
+            for k, v in rsi_dist.items():
+                st.write(f"- {k}: {v} ({v/len(df)*100:.1f}%)")
+
+        with col3:
+            vol_dist = df['volume_spike'].value_counts()
+            st.markdown("**Volume Spike**")
+            for k, v in vol_dist.items():
+                st.write(f"- {k}: {v} ({v/len(df)*100:.1f}%)")
 
 
 elif page == "Live Prediction":
     st.header("Live Prediction")
+    st.markdown("실시간 비트코인 데이터로 가격 방향을 예측합니다.")
+
+    # 선택된 모델 확인
+    use_lstm = selected_model == "LSTM+XGBoost (Advanced)"
 
     # 모델 로드
-    predictor = load_model()
+    if use_lstm:
+        lstm_predictor = load_lstm_model()
+        if lstm_predictor is None:
+            st.warning("LSTM 모델을 찾을 수 없습니다. SVM 모델로 전환합니다.")
+            use_lstm = False
+            predictor = load_model()
+        else:
+            st.success(f"Model: LSTM+XGBoost (Multi-horizon)")
+    else:
+        predictor = load_model()
 
-    if predictor is None:
+    if not use_lstm and predictor is None:
         st.warning("Warning: 학습된 모델이 없습니다. 먼저 모델을 학습하세요.")
-        st.code("python3 src/predictor.py", language="bash")
+        st.code("python run.py", language="bash")
         st.stop()
 
-    st.success("Success: 모델 로드 완료")
+    if not use_lstm:
+        st.success(f"Model: SVM (1-hour prediction)")
+
+    # 모델 정보 표시
+    with st.expander("Model Information"):
+        if use_lstm:
+            st.markdown("""
+            **LSTM + XGBoost Hybrid Model**
+            - 입력: 최근 72시간 시계열 데이터
+            - 예측: 1시간, 24시간, 7일 후 가격 방향
+            - LSTM: 시계열 특성 추출
+            - XGBoost: 방향 분류
+            """)
+        else:
+            st.markdown("""
+            **SVM (Support Vector Machine) Model**
+            - 입력: 현재 시점 단일 데이터
+            - 예측: 1시간 후 가격 방향만
+            - RBF 커널 기반 분류
+            """)
 
     # 실시간 데이터 가져오기
-    if st.button("Get Current Bitcoin Data"):
-        with st.spinner("데이터 수집 중..."):
-            current_df = get_current_bitcoin_data()
+    if st.button("Get Current Bitcoin Data & Predict", type="primary"):
+        with st.spinner("데이터 수집 및 분석 중..."):
+            if use_lstm:
+                # LSTM은 더 많은 데이터 필요
+                current_df = get_recent_data_for_lstm(hours=100)
+            else:
+                current_df = get_current_bitcoin_data()
 
         if current_df is not None and len(current_df) > 0:
-            st.success("Success: 데이터 수집 완료")
+            st.success(f"Data collected: {len(current_df)} hours")
 
             # 최신 데이터
             latest = current_df.iloc[-1]
@@ -268,41 +466,86 @@ elif page == "Live Prediction":
 
             # 예측
             st.markdown("---")
-            st.subheader("Prediction")
+            st.subheader("Prediction Results")
 
-            # 인코딩 (간단히 매핑)
-            ma_cross_map = {'golden': 0, 'dead': 1, 'neutral': 2}
-            rsi_signal_map = {'overbought': 0, 'oversold': 1, 'neutral': 2}
-            volume_spike_map = {'high': 0, 'normal': 1, 'low': 2}
-
-            features = {
-                'open': latest['open'],
-                'high': latest['high'],
-                'low': latest['low'],
-                'close': latest['close'],
-                'volume': latest['volume'],
-                'ma_cross': ma_cross_map.get(latest['ma_cross'], 2),
-                'rsi_signal': rsi_signal_map.get(latest['rsi_signal'], 2),
-                'volume_spike': volume_spike_map.get(latest['volume_spike'], 1)
+            direction_emoji = {
+                'UP': '🔴 UP',
+                'DOWN': '🔵 DOWN',
+                'STABLE': '⚪ STABLE'
             }
 
-            result = predictor.predict(features)
+            if use_lstm:
+                # LSTM 다중 시간대 예측
+                try:
+                    predictions = lstm_predictor.predict_realtime(current_df)
 
-            # 결과 표시
-            col1, col2 = st.columns(2)
+                    # 3개 시간대 결과 표시
+                    col1, col2, col3 = st.columns(3)
 
-            with col1:
-                st.markdown("### 예측 결과")
-                direction_color = {
-                    'UP': '🔴',
-                    'DOWN': '🔵',
-                    'STABLE': '⚪'
+                    horizons = [('1h', '1 Hour', col1), ('24h', '24 Hours', col2), ('7d', '7 Days', col3)]
+
+                    for horizon, label, col in horizons:
+                        if horizon in predictions:
+                            pred = predictions[horizon]
+                            with col:
+                                st.markdown(f"### {label}")
+                                st.markdown(f"## {direction_emoji.get(pred['direction'], pred['direction'])}")
+                                st.metric("Confidence", f"{pred['confidence']:.1%}")
+
+                                # 클래스별 확률
+                                if 'probabilities' in pred:
+                                    st.markdown("**Probabilities:**")
+                                    for cls, prob in pred['probabilities'].items():
+                                        st.progress(float(prob), text=f"{cls}: {prob:.1%}")
+
+                except Exception as e:
+                    st.error(f"LSTM 예측 실패: {e}")
+                    st.info("SVM 모델로 재시도합니다...")
+                    # SVM 폴백
+                    predictor = load_model()
+                    if predictor:
+                        use_lstm = False
+
+            if not use_lstm:
+                # SVM 단일 시간대 예측
+                ma_cross_map = {'golden': 0, 'dead': 1, 'neutral': 2}
+                rsi_signal_map = {'overbought': 0, 'oversold': 1, 'neutral': 2}
+                volume_spike_map = {'high': 0, 'normal': 1, 'low': 2}
+
+                features = {
+                    'open': latest['open'],
+                    'high': latest['high'],
+                    'low': latest['low'],
+                    'close': latest['close'],
+                    'volume': latest['volume'],
+                    'ma_cross': ma_cross_map.get(latest['ma_cross'], 2),
+                    'rsi_signal': rsi_signal_map.get(latest['rsi_signal'], 2),
+                    'volume_spike': volume_spike_map.get(latest['volume_spike'], 1)
                 }
-                st.markdown(f"## {direction_color.get(result['prediction'], '')} {result['prediction']}")
-                st.markdown(f"**신뢰도:** {result['confidence']:.1%}")
 
-            with col2:
-                st.markdown("### 클래스별 확률")
+                result = predictor.predict(features)
+
+                # 결과 표시 (1시간만)
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.markdown("### 1 Hour")
+                    st.markdown(f"## {direction_emoji.get(result['prediction'], result['prediction'])}")
+                    st.metric("Confidence", f"{result['confidence']:.1%}")
+
+                with col2:
+                    st.markdown("### 24 Hours")
+                    st.markdown("## N/A")
+                    st.caption("SVM 모델은 1시간 예측만 지원")
+
+                with col3:
+                    st.markdown("### 7 Days")
+                    st.markdown("## N/A")
+                    st.caption("LSTM 모델 필요")
+
+                # 클래스별 확률 차트
+                st.markdown("---")
+                st.markdown("### Class Probabilities (1-Hour)")
                 prob_df = pd.DataFrame({
                     'Class': list(result['probabilities'].keys()),
                     'Probability': list(result['probabilities'].values())
@@ -319,7 +562,7 @@ elif page == "Live Prediction":
             # 차트
             st.markdown("---")
             st.subheader("Recent Price Chart")
-            fig = create_candlestick_chart(current_df.tail(50))
+            fig = create_candlestick_chart(current_df.tail(72))
             st.plotly_chart(fig, use_container_width=True)
 
         else:

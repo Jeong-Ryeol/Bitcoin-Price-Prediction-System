@@ -1,6 +1,6 @@
 """
 머신러닝 예측 모델 모듈
-scikit-learn을 사용한 가격 방향 예측
+SVM (기본) + LSTM+XGBoost 하이브리드 (고급) 지원
 """
 
 import pandas as pd
@@ -14,7 +14,25 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-from mlxtend.classifier import OneRClassifier
+
+try:
+    from mlxtend.classifier import OneRClassifier
+    MLXTEND_AVAILABLE = True
+except ImportError:
+    MLXTEND_AVAILABLE = False
+
+# LSTM 모델 임포트 시도
+try:
+    from lstm_model import LSTMXGBoostHybrid, check_dependencies
+    LSTM_AVAILABLE = check_dependencies()
+except ImportError:
+    LSTM_AVAILABLE = False
+
+try:
+    from sequence_generator import SequenceGenerator, create_train_test_sequences
+    SEQUENCE_AVAILABLE = True
+except ImportError:
+    SEQUENCE_AVAILABLE = False
 
 
 class BitcoinPredictor:
@@ -189,6 +207,105 @@ class BitcoinPredictor:
             self.feature_names = data['feature_names']
 
         print(f"\n✅ 모델 로드 완료: {filepath}")
+
+
+class HybridPredictor:
+    """LSTM + XGBoost 하이브리드 예측기 래퍼"""
+
+    def __init__(self, config=None):
+        if not LSTM_AVAILABLE:
+            raise ImportError("LSTM 모델을 사용하려면 tensorflow와 xgboost가 필요합니다")
+
+        self.config = config or {
+            'sequence_length': 72,
+            'prediction_horizons': {'1h': 1, '24h': 24, '7d': 168},
+            'thresholds': {'1h': 0.3, '24h': 1.5, '7d': 5.0},
+            'training': {'epochs': 50, 'batch_size': 32}
+        }
+        self.model = None
+        self.seq_generator = None
+
+    def prepare_data(self, df):
+        """시퀀스 데이터 준비"""
+        if not SEQUENCE_AVAILABLE:
+            raise ImportError("sequence_generator 모듈이 필요합니다")
+
+        self.seq_generator = SequenceGenerator(
+            sequence_length=self.config['sequence_length']
+        )
+
+        X, y_dict = self.seq_generator.create_sequences(
+            df, self.config['prediction_horizons']
+        )
+
+        return X, y_dict
+
+    def train(self, X, y_dict, epochs=None, batch_size=None):
+        """하이브리드 모델 학습"""
+        self.model = LSTMXGBoostHybrid(self.config)
+
+        training_epochs = epochs or self.config['training'].get('epochs', 50)
+        training_batch = batch_size or self.config['training'].get('batch_size', 32)
+
+        self.model.train(X, y_dict, epochs=training_epochs, batch_size=training_batch)
+
+        return self.model
+
+    def evaluate(self, X_test, y_test_dict):
+        """모델 평가"""
+        return self.model.evaluate(X_test, y_test_dict)
+
+    def predict(self, X):
+        """예측 (배치)"""
+        return self.model.predict(X)
+
+    def predict_single(self, X):
+        """단일 예측"""
+        return self.model.predict_single(X)
+
+    def predict_realtime(self, df):
+        """
+        실시간 예측 (DataFrame 입력)
+
+        Args:
+            df: 최근 데이터 DataFrame (최소 sequence_length 행 필요)
+
+        Returns:
+            dict: 각 시간대별 예측 결과
+        """
+        if self.seq_generator is None:
+            self.seq_generator = SequenceGenerator(
+                sequence_length=self.config['sequence_length']
+            )
+            # 전처리기 로드 필요
+            preprocessor_path = 'models/preprocessors.pkl'
+            if os.path.exists(preprocessor_path):
+                self.seq_generator.load_preprocessors(preprocessor_path)
+
+        X = self.seq_generator.create_single_sequence(df)
+        return self.model.predict_single(X)
+
+    def save(self, filepath='models/lstm_xgboost_hybrid.pkl'):
+        """모델 저장"""
+        self.model.save(filepath)
+
+        # 전처리기도 저장
+        if self.seq_generator:
+            preprocessor_path = filepath.replace('.pkl', '_preprocessors.pkl')
+            self.seq_generator.save_preprocessors(preprocessor_path)
+
+    def load(self, filepath='models/lstm_xgboost_hybrid.pkl'):
+        """모델 로드"""
+        self.model = LSTMXGBoostHybrid(self.config)
+        self.model.load(filepath)
+
+        # 전처리기 로드
+        preprocessor_path = filepath.replace('.pkl', '_preprocessors.pkl')
+        if os.path.exists(preprocessor_path):
+            self.seq_generator = SequenceGenerator(
+                sequence_length=self.config['sequence_length']
+            )
+            self.seq_generator.load_preprocessors(preprocessor_path)
 
 
 def compare_models(X_train, X_test, y_train, y_test):

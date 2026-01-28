@@ -219,13 +219,14 @@ class BitcoinDataCollector:
 
         return df_updated
 
-    def add_future_labels(self, df, hours_ahead=1):
+    def add_future_labels(self, df, hours_ahead=1, threshold=0.3):
         """
-        미래 가격 방향 라벨 추가 (예측 타겟)
+        미래 가격 방향 라벨 추가 (예측 타겟) - 단일 시간대
 
         Args:
             df: 캔들 데이터
             hours_ahead: 몇 시간 후 예측할지
+            threshold: 방향 판단 임계값 (%)
 
         Returns:
             DataFrame: 라벨이 추가된 데이터
@@ -240,9 +241,9 @@ class BitcoinDataCollector:
         def classify_direction(change_pct):
             if pd.isna(change_pct):
                 return None
-            elif change_pct > 0.3:  # 0.3% 이상 상승
+            elif change_pct > threshold:
                 return 'UP'
-            elif change_pct < -0.3:  # 0.3% 이상 하락
+            elif change_pct < -threshold:
                 return 'DOWN'
             else:
                 return 'STABLE'
@@ -252,7 +253,7 @@ class BitcoinDataCollector:
         # 미래 데이터가 없는 마지막 행들 제거
         df = df[df['price_direction'].notna()].copy()
 
-        print(f"\n🎯 클래스 라벨 추가 완료 ({hours_ahead}시간 후 예측)")
+        print(f"\n🎯 클래스 라벨 추가 완료 ({hours_ahead}시간 후 예측, 임계값 ±{threshold}%)")
         print(f"   유효 데이터: {len(df)}개")
 
         # 클래스 분포
@@ -260,6 +261,73 @@ class BitcoinDataCollector:
         print(f"\n   클래스 분포:")
         for label, count in class_dist.items():
             print(f"   - {label}: {count}개 ({count/len(df)*100:.1f}%)")
+
+        return df
+
+    def add_multi_horizon_labels(self, df, config):
+        """
+        다중 시간대 미래 가격 방향 라벨 추가
+
+        Args:
+            df: 캔들 데이터
+            config: 설정 딕셔너리 (thresholds, prediction_horizons 포함)
+
+        Returns:
+            DataFrame: 다중 라벨이 추가된 데이터
+        """
+        horizons = config.get('prediction_horizons', {'1h': 1, '24h': 24, '7d': 168})
+        thresholds = config.get('thresholds', {'1h': 0.3, '24h': 1.5, '7d': 5.0})
+
+        print(f"\n🎯 다중 시간대 라벨 추가 시작")
+        print(f"   시간대: {list(horizons.keys())}")
+        print(f"   임계값: {thresholds}")
+
+        df = df.copy()
+        max_horizon = max(horizons.values())
+
+        for name, hours in horizons.items():
+            threshold = thresholds.get(name, 0.3)
+
+            # 미래 종가
+            col_future = f'future_close_{hours}h'
+            col_change = f'change_pct_{hours}h'
+            col_direction = f'direction_{hours}h'
+
+            df[col_future] = df['close'].shift(-hours)
+            df[col_change] = ((df[col_future] - df['close']) / df['close']) * 100
+
+            # 클래스 라벨
+            def classify(change_pct, thresh=threshold):
+                if pd.isna(change_pct):
+                    return None
+                elif change_pct > thresh:
+                    return 'UP'
+                elif change_pct < -thresh:
+                    return 'DOWN'
+                else:
+                    return 'STABLE'
+
+            df[col_direction] = df[col_change].apply(lambda x: classify(x, threshold))
+
+        # 가장 긴 시간대 기준으로 유효 데이터만 유지
+        direction_cols = [f'direction_{h}h' for h in horizons.values()]
+        valid_mask = df[direction_cols].notna().all(axis=1)
+        df = df[valid_mask].copy()
+
+        print(f"\n   유효 데이터: {len(df)}개")
+
+        # 각 시간대별 클래스 분포
+        for name, hours in horizons.items():
+            col_direction = f'direction_{hours}h'
+            if col_direction in df.columns:
+                class_dist = df[col_direction].value_counts()
+                print(f"\n   [{name}] 클래스 분포 (임계값 ±{thresholds.get(name, 0.3)}%):")
+                for label, count in class_dist.items():
+                    print(f"      - {label}: {count}개 ({count/len(df)*100:.1f}%)")
+
+        # 기존 호환성을 위해 price_direction도 유지 (1시간 기준)
+        if 'direction_1h' in df.columns:
+            df['price_direction'] = df['direction_1h']
 
         return df
 
