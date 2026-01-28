@@ -873,7 +873,7 @@ elif page == "Manual Prediction":
 
 elif page == "Model Performance":
     st.header("Model Performance")
-    st.markdown("4개 알고리즘의 성능을 비교하고 SVM 선택 이유를 설명합니다.")
+    st.markdown("기본 알고리즘(SVM, RF, DT, NB)과 고급 모델(LSTM+XGBoost)의 성능을 비교합니다.")
 
     # 데이터 및 모델 로드
     df = load_historical_data()
@@ -981,54 +981,54 @@ elif page == "Model Performance":
     summary = tracker.get_summary()
     st.success(f"최고 성능 모델: {summary['best_model']} ({summary['best_accuracy']:.2%})")
 
-    # SVM 선택 이유 설명
+    # 모델 설명
     st.markdown("---")
-    st.markdown("### SVM 알고리즘 선택 이유")
+    st.markdown("### 예측 모델 비교")
 
     st.markdown("""
-    본 프로젝트에서는 SVM (Support Vector Machine)을 최종 예측 모델로 선택하였습니다.
+    본 프로젝트에서는 **두 가지 예측 모델**을 제공합니다.
 
-    #### 1. 선택 근거
+    ---
 
-    **최고 정확도**
+    #### LSTM + XGBoost 하이브리드 (Advanced) - 권장
 
-    SVM은 테스트 데이터에서 약 69%의 정확도를 기록하여 다른 알고리즘 대비 2-5% 높은 성능을 보였습니다.
-    교차 검증 점수도 가장 안정적으로 나타났으며, 표준편차가 낮아 일관된 성능을 보장합니다.
+    | 항목 | 내용 |
+    |------|------|
+    | **정확도** | 1시간: 73.58%, 24시간: 65.73%, 7일: 74.31% |
+    | **예측 범위** | 1시간, 24시간, 7일 (다중 시간대) |
+    | **입력 데이터** | 최근 72시간 시계열 데이터 |
+    | **특징** | 시계열 패턴 학습에 최적화 |
 
-    **비선형 패턴 학습**
+    **LSTM (Long Short-Term Memory)**
+    - 시계열 데이터의 장기 의존성을 학습
+    - 72시간 윈도우에서 시간적 패턴 추출
 
-    RBF 커널을 사용하여 가격, 거래량, 기술적 지표 간의 복잡한 비선형 관계를 효과적으로 학습할 수 있습니다.
-    암호화폐 시장은 단순한 선형 관계로 설명되지 않는 경우가 많기 때문에, 이러한 특성이 중요한 장점으로 작용합니다.
+    **XGBoost**
+    - LSTM에서 추출한 피처로 최종 분류
+    - 각 시간대별 독립적인 분류기
 
-    **과적합 방지**
+    ---
 
-    SVM의 마진 최대화 원리는 학습 데이터에 지나치게 맞추지 않고 일반화 성능을 높이는 데 도움이 됩니다.
-    이를 통해 새로운 데이터에 대한 예측 성능도 우수하게 유지됩니다.
+    #### SVM (Basic) - 기본
 
-    #### 2. 다른 알고리즘과의 비교
+    | 항목 | 내용 |
+    |------|------|
+    | **정확도** | 약 68-69% |
+    | **예측 범위** | 1시간 후만 |
+    | **입력 데이터** | 현재 시점 단일 데이터 |
+    | **특징** | 빠른 예측, 간단한 구조 |
 
-    Naive Bayes는 64%의 정확도로 빠르지만, 특성 간 독립성 가정이 실제 데이터와 맞지 않습니다.
-    Decision Tree는 67%로 해석이 쉽다는 장점이 있으나 과적합 경향이 있고 불안정합니다.
-    Random Forest는 67%로 안정적이지만 SVM보다 정확도가 낮았습니다.
+    ---
 
-    #### 3. 한계점 및 개선 방향
+    #### 기존 ML 알고리즘 비교 (1시간 예측 기준)
 
-    **클래스 불균형 문제**
-
-    현재 데이터셋은 STABLE 클래스가 70.6%를 차지하여 UP/DOWN 예측이 어렵습니다.
-    이를 해결하기 위해 class_weight='balanced' 파라미터나 SMOTE 오버샘플링 기법을 적용할 수 있습니다.
-
-    **학습 시간**
-
-    다른 알고리즘에 비해 학습 시간이 5-10초 정도로 상대적으로 오래 걸립니다.
-    하지만 정확도 향상을 고려하면 충분히 감수할 만한 수준입니다.
-
-    **모델 해석**
-
-    SVM은 블랙박스 모델로 의사결정 과정을 직접적으로 설명하기 어렵습니다.
-    이는 Decision Tree 같은 모델에 비해 단점으로 작용할 수 있으나, 본 프로젝트에서는 정확도를 우선시하였습니다.
-
-    더 자세한 Confusion Matrix와 클래스별 성능 분석은 WEKA Analysis 페이지에서 확인할 수 있습니다.
+    | 알고리즘 | 정확도 | 특징 |
+    |----------|--------|------|
+    | Naive Bayes | ~64% | 빠르지만 독립성 가정 위배 |
+    | Decision Tree | ~67% | 해석 쉬움, 과적합 경향 |
+    | Random Forest | ~67% | 안정적, 앙상블 |
+    | SVM | ~69% | 비선형 패턴 학습 |
+    | **LSTM+XGBoost** | **~74%** | 시계열 특화, 다중 예측 |
     """)
 
     # Learning Curve 섹션
@@ -2411,7 +2411,8 @@ elif page == "About":
         | **Data Collection** | Upbit Public API (RESTful) |
         | **Data Processing** | pandas, numpy |
         | **Technical Analysis** | pandas-ta, RSI, Moving Average |
-        | **Machine Learning** | scikit-learn (SVM, RF, DT, NB) |
+        | **Machine Learning (Basic)** | scikit-learn (SVM, RF, DT, NB) |
+        | **Deep Learning (Advanced)** | TensorFlow/Keras (LSTM), XGBoost |
         | **Statistical Analysis** | scipy (ANOVA) |
         | **Data Mining** | mlxtend (Apriori), K-Means |
         | **Visualization** | Streamlit, Plotly |
@@ -2525,8 +2526,9 @@ elif page == "About":
         **주요 기능:**
         - Upbit API에서 실시간 200시간 데이터 수집
         - 기술적 지표 자동 계산
-        - SVM 모델로 1시간 후 가격 방향 예측
-        - 클래스별 확률 분포 표시
+        - **SVM (Basic)**: 1시간 후 가격 방향 예측
+        - **LSTM+XGBoost (Advanced)**: 1시간, 24시간, 7일 후 다중 예측
+        - 현재 가격 및 예상 가격 범위 표시
 
         ---
 
@@ -2614,7 +2616,8 @@ elif page == "About":
         | **Naive Bayes** | 베이즈 정리 기반 확률적 분류 | 빠른 학습, 독립성 가정 |
         | **Decision Tree (J48)** | 규칙 기반 트리 구조 분류 | 해석 용이, 과적합 위험 |
         | **Random Forest** | 다수의 결정트리 앙상블 | 높은 정확도, 과적합 방지 |
-        | **SVM (RBF)** | 최적 결정 경계 탐색 | 고차원에 강함, 최고 성능 |
+        | **SVM (RBF)** | 최적 결정 경계 탐색 | 고차원에 강함 |
+        | **LSTM+XGBoost** | 딥러닝 + 그래디언트 부스팅 | 시계열 특화, 최고 성능 (~74%) |
 
         **평가 지표:**
         - Accuracy (정확도)
@@ -2649,7 +2652,7 @@ elif page == "About":
         - 95% 신뢰구간: 평균 ± 1.96 × 표준편차
 
         **해석:**
-        > "SVM 모델의 정확도는 95% 신뢰수준에서 64% ~ 74% 범위입니다."
+        > "SVM 모델은 95% 신뢰수준에서 64% ~ 74%, LSTM+XGBoost는 70% ~ 78% 범위입니다."
 
         ---
 
@@ -2750,13 +2753,14 @@ elif page == "About":
 
         | 요구사항 | 조건 | 본 프로젝트 | 충족 |
         |---------|------|-----------|------|
-        | Instances | 100개 이상 | 9,000개+ | O |
+        | Instances | 100개 이상 | 25,000개+ | O |
         | Attributes | 4개 이상 | 9개 | O |
-        | Classification | 분류 분석 | SVM, RF, DT, NB | O |
+        | Classification | 분류 분석 | SVM, RF, DT, NB, **LSTM+XGBoost** | O |
         | Clustering | 군집 분석 | K-Means | O |
         | Association | 연관규칙 | Apriori | O |
         | Learning Curve | 학습곡선 | 10-Fold CV | O |
         | ANOVA | 분산분석 | One-Way ANOVA | O |
+        | Advanced Model | 고급 모델 | LSTM+XGBoost 하이브리드 | O+ |
 
         ---
 
