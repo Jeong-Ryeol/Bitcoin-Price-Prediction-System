@@ -42,8 +42,8 @@ def main():
 
         collector = BitcoinDataCollector()
 
-        # 과거 500시간 데이터 수집
-        df = collector.collect_historical_data(hours=500)
+        # 3년치 데이터 수집 (약 26,280시간)
+        df = collector.collect_yearly_data(days=365*3)
 
         if df is None or len(df) == 0:
             print("\n❌ 데이터 수집 실패. 프로그램을 종료합니다.")
