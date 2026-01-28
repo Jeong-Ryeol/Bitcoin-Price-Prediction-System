@@ -183,6 +183,13 @@ def main(model_type='auto'):
 
         # 피처 데이터셋 저장
         feature_df = analyzer.get_feature_dataset()
+
+        # LSTM용 direction 컬럼 추가
+        direction_cols = [col for col in df.columns if col.startswith('direction_')]
+        for col in direction_cols:
+            if col not in feature_df.columns:
+                feature_df[col] = df[col].values[:len(feature_df)]
+
         feature_path = 'data/processed/bitcoin_features.csv'
         os.makedirs('data/processed', exist_ok=True)
         feature_df.to_csv(feature_path, index=False)
